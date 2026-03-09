@@ -142,15 +142,54 @@ function getBoundaryStation(passOption) {
 function calculateFare() {
   const fromId = document.getElementById("fromStation").value;
   const toId   = document.getElementById("toStation").value;
+  const pass   = document.getElementById("monthlyPass").value; // dropdown for pass type
   const key    = `${fromId}-${toId}`;
   const fare   = fareTable[key];
 
+  const table = document.getElementById("fareTable");
+  table.innerHTML = ""; // clear previous results
+
   if (fare !== undefined) {
-    document.getElementById("fareResult").textContent =
-      `Octopus Adult Fare: $${fare.toFixed(1)}`;
+    // Base Octopus Adult fare
+    const originalFare = fare;
+
+    // Adjusted fare depending on pass type
+    let passFare = originalFare;
+    if (pass && pass !== "none") {
+      if (isMonthlyPassEligible(pass, fromId, toId)) {
+        passFare = 0; // unlimited rides within pass zone
+      } else if (isMonthlyPassConnection(pass, fromId, toId)) {
+        passFare = originalFare * 0.75; // 25% discount outside zone
+      }
+    }
+
+    // Difference
+    const difference = originalFare - passFare;
+
+    // Build results table
+    const rows = [
+      ["Fare with selected pass", `$${passFare.toFixed(1)}`],
+      ["Original Octopus Adult fare", `$${originalFare.toFixed(1)}`],
+      ["Difference", `$${difference.toFixed(1)}`]
+    ];
+
+    rows.forEach(([label, value]) => {
+      const row = document.createElement("tr");
+      const cell1 = document.createElement("td");
+      const cell2 = document.createElement("td");
+      cell1.textContent = label;
+      cell2.textContent = value;
+      row.appendChild(cell1);
+      row.appendChild(cell2);
+      table.appendChild(row);
+    });
   } else {
-    document.getElementById("fareResult").textContent =
-      "No fare found for this route.";
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 2;
+    cell.textContent = "No fare found for this route.";
+    row.appendChild(cell);
+    table.appendChild(row);
   }
 }
 
