@@ -1,30 +1,11 @@
-// Example station list (replace with full dataset from DATA.GOV.HK)
-const stations = [
-  "Admiralty", "Central", "Tsim Sha Tsui", "Sheung Shui", "Wu Kai Sha",
-  "Tuen Mun", "Hung Hom", "Tung Chung", "Hong Kong", "Nam Cheong", "To Kwa Wan"
-];
+// Load station list and fare table directly from DATA.GOV.HK
+const stationURL = "https://opendata.mtr.com.hk/data/mtr_lines_and_stations.csv";
+const fareURL = "https://opendata.mtr.com.hk/data/mtrfares.csv";
 
-// Example fare table (replace with full dataset)
-const fareTable = {
-  "Admiralty-Central": 5.0,
-  "Admiralty-Tsim Sha Tsui": 10.0,
-  "Sheung Shui-Tsim Sha Tsui": 20.0,
-  "Tuen Mun-Hung Hom": 25.0,
-  "Tung Chung-Hong Kong": 30.0,
-  "Nam Cheong-To Kwa Wan": 12.4
-};
+let stations = [];
+let fareTable = {};
 
-// Populate station dropdowns
-window.onload = () => {
-  const fromSelect = document.getElementById("fromStation");
-  const toSelect = document.getElementById("toStation");
-  stations.forEach(st => {
-    fromSelect.add(new Option(st, st));
-    toSelect.add(new Option(st, st));
-  });
-};
-
-// Coverage zones (simplified)
+// Coverage zones (simplified for demo — expand with full arrays)
 const passCoverage = {
   "Pass1": ["Sheung Shui", "Wu Kai Sha", "East Tsim Sha Tsui"],
   "Pass2": ["Tuen Mun", "Nam Cheong"],
@@ -41,14 +22,51 @@ const passBoundary = {
   "Pass5": "Hong Kong"
 };
 
+// Parse CSV text into rows
+function parseCSV(text) {
+  return text.trim().split("\n").map(r => r.split(","));
+}
+
+// Load stations
+async function loadStations() {
+  const response = await fetch(stationURL);
+  const text = await response.text();
+  const rows = parseCSV(text);
+
+  // Column 3 = English station name
+  stations = rows.slice(1).map(r => r[2]).filter(Boolean);
+
+  const fromSelect = document.getElementById("fromStation");
+  const toSelect = document.getElementById("toStation");
+  stations.forEach(st => {
+    fromSelect.add(new Option(st, st));
+    toSelect.add(new Option(st, st));
+  });
+}
+
+// Load fares
+async function loadFares() {
+  const response = await fetch(fareURL);
+  const text = await response.text();
+  const rows = parseCSV(text);
+
+  // Schema: FromStation, ToStation, Fare
+  rows.slice(1).forEach(r => {
+    const from = r[0], to = r[1], fare = parseFloat(r[2]);
+    if (from && to && !isNaN(fare)) {
+      fareTable[`${from}-${to}`] = fare;
+    }
+  });
+}
+
 // Lookup fare
 function lookupFare(from, to) {
   return fareTable[`${from}-${to}`] || fareTable[`${to}-${from}`] || 0;
 }
 
 // Apply discount with rounding rule
-function applyDiscount(fare, discountRate) {
-  let discounted = fare * (1 - discountRate);
+function applyDiscount(fare) {
+  let discounted = fare * 0.75;
   let tenth = discounted * 10;
   let remainder = tenth - Math.floor(tenth);
 
@@ -60,24 +78,34 @@ function applyDiscount(fare, discountRate) {
   return discounted;
 }
 
+// Check if journey fully covered
+function isCoveredByPass(from, to, passOption) {
+  const coverage = passCoverage[passOption];
+  return coverage && coverage.includes(from) && coverage.includes(to);
+}
+
+// Get boundary station
+function getBoundaryStation(passOption, from, to) {
+  return passBoundary[passOption] || null;
+}
+
 // Main calculation
 function calculateFare() {
   const from = document.getElementById("fromStation").value;
   const to = document.getElementById("toStation").value;
-  const pass = document.getElementById("passOption").value;
+  const pass = document.getElementById("passOption").value.split(":")[0]; // "Pass2"
 
   const original = lookupFare(from, to);
   let passFare = original;
 
   if (pass !== "No Pass") {
-    const coverage = passCoverage[pass.split(":")[0]];
-    if (coverage && coverage.includes(from) && coverage.includes(to)) {
+    if (isCoveredByPass(from, to, pass)) {
       passFare = 0; // fully covered
     } else {
-      const boundary = passBoundary[pass.split(":")[0]];
+      const boundary = getBoundaryStation(pass, from, to);
       if (boundary) {
         const connectionFare = lookupFare(boundary, to);
-        passFare = applyDiscount(connectionFare, 0.25);
+        passFare = applyDiscount(connectionFare);
       }
     }
   }
@@ -89,3 +117,9 @@ function calculateFare() {
   document.getElementById("difference").innerText = `$${diff.toFixed(1)}`;
   document.getElementById("resultTable").style.display = "table";
 }
+
+// Initialize
+window.onload = async () => {
+  await loadStations();
+  await loadFares();
+};
