@@ -50,7 +50,12 @@ async function loadStations() {
   const response = await fetch(stationURL);
   const text = await response.text();
   const rows = text.trim().split("\n").map(r => r.split(","));
-  stations = rows.slice(1).map(r => r[2]).filter(Boolean);
+
+  // Column 2 = English station name (index 2)
+  stations = rows.slice(1)
+    .map(r => r[2].replace(/"/g, "")) // remove quotes
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b)); // alphabetical order
 
   const fromSelect = document.getElementById("fromStation");
   const toSelect = document.getElementById("toStation");
