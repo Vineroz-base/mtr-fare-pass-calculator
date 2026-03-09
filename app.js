@@ -51,17 +51,41 @@ async function loadStations() {
   const text = await response.text();
   const rows = text.trim().split("\n").map(r => r.split(","));
 
-  // Column 2 = English station name (index 2)
-  stations = rows.slice(1)
-    .map(r => r[2].replace(/"/g, "")) // remove quotes
-    .filter(Boolean)
-    .sort((a, b) => a.localeCompare(b)); // alphabetical order
+  // Group stations by line
+  const lines = {};
+  rows.slice(1).forEach(r => {
+    const line = r[0].replace(/"/g, "");
+    const code = r[2].replace(/"/g, "");
+    const name = r[5].replace(/"/g, "");
+    const seq = parseFloat(r[6]);
 
+    if (!lines[line]) lines[line] = [];
+    // Deduplicate by code
+    if (!lines[line].some(st => st.code === code)) {
+      lines[line].push({ code, name, seq });
+    }
+  });
+
+  // Build dropdown
   const fromSelect = document.getElementById("fromStation");
   const toSelect = document.getElementById("toStation");
-  stations.forEach(st => {
-    fromSelect.add(new Option(st, st));
-    toSelect.add(new Option(st, st));
+
+  Object.keys(lines).forEach(line => {
+    // Add line header (disabled)
+    const header = new Option(line, "");
+    header.disabled = true;
+    header.style.backgroundColor = "#ddd"; // grey
+    fromSelect.add(header);
+    toSelect.add(header.cloneNode(true));
+
+    // Sort stations by sequence
+    lines[line].sort((a, b) => a.seq - b.seq);
+
+    // Add stations
+    lines[line].forEach(st => {
+      fromSelect.add(new Option(st.name, st.code));
+      toSelect.add(new Option(st.name, st.code));
+    });
   });
 }
 
