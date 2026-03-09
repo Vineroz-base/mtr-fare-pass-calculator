@@ -8,33 +8,27 @@ let fareTable = {};
 // Coverage zones (full official station arrays)
 const passCoverage = {
   "Pass1": [
-    // East Rail Line (ordinary class only)
     "Sheung Shui","Fanling","Tai Wo","Tai Po Market","University",
     "Sha Tin","Tai Wai","Kowloon Tong","Mong Kok East","Hung Hom","East Tsim Sha Tsui",
-    // Tuen Ma Line (Ma On Shan section)
-    "Wu Kai Sha","Ma On Shan","Heng On","Tai Shui Hang","Shek Mun","City One","Sha Tin Wai","Che Kung Temple","Tai Wai",
-    // Interchange stations
+    "Wu Kai Sha","Ma On Shan","Heng On","Tai Shui Hang","Shek Mun","City One",
+    "Sha Tin Wai","Che Kung Temple","Tai Wai",
     "Diamond Hill","Ho Man Tin"
     // Excludes Admiralty, Exhibition Centre, Racecourse, Lo Wu, Lok Ma Chau
   ],
   "Pass2": [
-    // Tuen Ma Line (West Rail section)
     "Tuen Mun","Siu Hong","Tin Shui Wai","Long Ping","Yuen Long",
     "Kam Sheung Road","Tsuen Wan West","Mei Foo","Nam Cheong"
   ],
   "Pass3": [
-    // Same as Pass2 plus extension
     "Tuen Mun","Siu Hong","Tin Shui Wai","Long Ping","Yuen Long",
     "Kam Sheung Road","Tsuen Wan West","Mei Foo","Nam Cheong",
     "Austin","East Tsim Sha Tsui","Hung Hom"
   ],
   "Pass4": [
-    // Tung Chung Line (partial)
     "Tung Chung","Sunny Bay","Tsing Yi","Nam Cheong"
     // Excludes Disneyland Resort
   ],
   "Pass5": [
-    // Tung Chung Line (extended)
     "Tung Chung","Sunny Bay","Tsing Yi","Kowloon","Hong Kong","Central"
     // Excludes Disneyland Resort
   ]
@@ -147,6 +141,23 @@ function getBoundaryStation(passOption) {
   return passBoundary[passOption] || null;
 }
 
+// Check if journey fully covered
+function isMonthlyPassEligible(passOption, fromName, toName) {
+  const coverage = passCoverage[passOption];
+  return coverage && coverage.includes(fromName) && coverage.includes(toName);
+}
+
+// Check if journey connects outside pass zone (eligible for 25% discount)
+function isMonthlyPassConnection(passOption, fromName, toName) {
+  const coverage = passCoverage[passOption];
+  const boundary = passBoundary[passOption];
+  if (!coverage || !boundary) return false;
+
+  const inside = coverage.includes(fromName) || coverage.includes(toName);
+  const outside = !coverage.includes(fromName) || !coverage.includes(toName);
+  return inside && outside;
+}
+
 // Main calculation
 function calculateFare() {
   const fromId = document.getElementById("fromStation").value;
@@ -191,24 +202,6 @@ function calculateFare() {
     document.getElementById("difference").textContent = "-";
     document.getElementById("resultTable").style.display = "table";
   }
-}
-
-// Check if journey fully covered by pass
-function isMonthlyPassEligible(passOption, fromName, toName) {
-  const coverage = passCoverage[passOption];
-  return coverage && coverage.includes(fromName) && coverage.includes(toName);
-}
-
-// Check if journey connects outside pass zone (eligible for 25% discount)
-function isMonthlyPassConnection(passOption, fromName, toName) {
-  const coverage = passCoverage[passOption];
-  const boundary = passBoundary[passOption];
-  if (!coverage || !boundary) return false;
-
-  // One station inside coverage, one outside, and boundary is part of the route
-  const inside = coverage.includes(fromName) || coverage.includes(toName);
-  const outside = !coverage.includes(fromName) || !coverage.includes(toName);
-  return inside && outside;
 }
 
 // Initialize
