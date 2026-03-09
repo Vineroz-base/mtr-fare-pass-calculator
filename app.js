@@ -162,7 +162,7 @@ function isMonthlyPassConnection(passOption, fromName, toName) {
 function calculateFare() {
   const fromId = document.getElementById("fromStation").value;
   const toId   = document.getElementById("toStation").value;
-  const pass   = document.getElementById("passOption").value; // matches your HTML
+  const pass   = document.getElementById("monthlyPass").value;
   const key    = `${fromId}-${toId}`;
   const fare   = fareTable[key];
 
@@ -176,7 +176,7 @@ function calculateFare() {
 
     // Adjusted fare depending on pass type
     let passFare = originalFare;
-    if (pass && !pass.startsWith("No Pass")) {
+     if (pass && pass !== "none") {
       const passKey = pass.split(":")[0].trim(); // e.g. "Pass1"
       if (isMonthlyPassEligible(passKey, fromName, toName)) {
         passFare = 0; // unlimited rides within pass zone
