@@ -1,21 +1,22 @@
-// Load station list and fare table directly from DATA.GOV.HK
+// Live data endpoints
 const stationURL = "https://opendata.mtr.com.hk/data/mtr_lines_and_stations.csv";
 const fareURL = "https://opendata.mtr.com.hk/data/mtrfares.csv";
 
 let stations = [];
 let fareTable = {};
 
-// Coverage zones (simplified for demo — expand with full arrays)
+// Coverage zones (simplified — you’ll expand with full station arrays)
 const passCoverage = {
-  "Pass1": ["Sheung Shui", "Wu Kai Sha", "East Tsim Sha Tsui"],
-  "Pass2": ["Tuen Mun", "Nam Cheong"],
-  "Pass3": ["Tuen Mun", "Hung Hom"],
-  "Pass4": ["Tung Chung", "Nam Cheong"],
-  "Pass5": ["Tung Chung", "Hong Kong"]
+  "Pass1": ["Sheung Shui", "Wu Kai Sha", "East Tsim Sha Tsui"], // East Rail + Tuen Ma section
+  "Pass2": ["Tuen Mun", "Nam Cheong"],                         // Tuen Mun ↔ Nam Cheong
+  "Pass3": ["Tuen Mun", "Hung Hom"],                           // Tuen Mun ↔ Hung Hom
+  "Pass4": ["Tung Chung", "Nam Cheong"],                       // Tung Chung ↔ Nam Cheong
+  "Pass5": ["Tung Chung", "Hong Kong"]                         // Tung Chung ↔ Hong Kong
 };
 
 // Boundary stations for connection journeys
 const passBoundary = {
+  "Pass1": "East Tsim Sha Tsui", // boundary for East Rail/Tuen Ma
   "Pass2": "Nam Cheong",
   "Pass3": "Hung Hom",
   "Pass4": "Nam Cheong",
@@ -85,7 +86,7 @@ function isCoveredByPass(from, to, passOption) {
 }
 
 // Get boundary station
-function getBoundaryStation(passOption, from, to) {
+function getBoundaryStation(passOption) {
   return passBoundary[passOption] || null;
 }
 
@@ -102,7 +103,7 @@ function calculateFare() {
     if (isCoveredByPass(from, to, pass)) {
       passFare = 0; // fully covered
     } else {
-      const boundary = getBoundaryStation(pass, from, to);
+      const boundary = getBoundaryStation(pass);
       if (boundary) {
         const connectionFare = lookupFare(boundary, to);
         passFare = applyDiscount(connectionFare);
