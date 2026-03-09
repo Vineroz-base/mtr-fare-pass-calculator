@@ -5,11 +5,12 @@ const fareURL = "https://opendata.mtr.com.hk/data/mtrfares.csv";
 let stations = [];
 let fareTable = {};
 
+// Coverage zones (expand with full station arrays)
 const passCoverage = {
   "Pass1": [
-    "Sheung Shui","Fanling","Tai Po Market","University","Sha Tin",
-    "Tai Wai","Kowloon Tong","Mong Kok East","Hung Hom","East Tsim Sha Tsui",
-    "Wu Kai Sha","Tai Wai","Diamond Hill","Kowloon Tong","Ho Man Tin","East Tsim Sha Tsui"
+    "Sheung Shui","Fanling","Tai Po Market","University","Sha Tin","Tai Wai",
+    "Kowloon Tong","Mong Kok East","Hung Hom","East Tsim Sha Tsui",
+    "Wu Kai Sha","Diamond Hill","Ho Man Tin"
     // Exclude Admiralty, Exhibition Centre, Racecourse, Lo Wu, Lok Ma Chau
   ],
   "Pass2": [
@@ -30,10 +31,9 @@ const passCoverage = {
   ]
 };
 
-
 // Boundary stations for connection journeys
 const passBoundary = {
-  "Pass1": "East Tsim Sha Tsui", // boundary for East Rail/Tuen Ma
+  "Pass1": "East Tsim Sha Tsui",
   "Pass2": "Nam Cheong",
   "Pass3": "Hung Hom",
   "Pass4": "Nam Cheong",
@@ -51,7 +51,7 @@ async function loadStations() {
   const text = await response.text();
   const rows = parseCSV(text);
 
-  // Column 3 = English station name
+  // Column 2 = English station name (index 2)
   stations = rows.slice(1).map(r => r[2]).filter(Boolean);
 
   const fromSelect = document.getElementById("fromStation");
