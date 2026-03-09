@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MTR Fare Calculator with Monthly Pass Extra</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    h1 { color: #0066cc; }
+    label { display: block; margin-top: 10px; }
+    select { margin-top: 5px; padding: 5px; }
+    table { margin-top: 20px; border-collapse: collapse; width: 400px; }
+    td { border: 1px solid #ccc; padding: 8px; }
+    .highlight { font-weight: bold; color: #006600; }
+  </style>
+</head>
+<body>
+  <h1>MTR Fare Calculator (全月通)</h1>
+
+  <label for="fromStation">From Station:</label>
+  <select id="fromStation">
+    <option>Admiralty</option>
+    <option>Central</option>
+    <option>Tsim Sha Tsui</option>
+    <option>Sheung Shui</option>
+    <option>Wu Kai Sha</option>
+    <option>Tuen Mun</option>
+    <option>Hung Hom</option>
+    <option>Tung Chung</option>
+    <option>Hong Kong</option>
+    <!-- Add more stations here -->
+  </select>
+
+  <label for="toStation">To Station:</label>
+  <select id="toStation">
+    <option>Admiralty</option>
+    <option>Central</option>
+    <option>Tsim Sha Tsui</option>
+    <option>Sheung Shui</option>
+    <option>Wu Kai Sha</option>
+    <option>Tuen Mun</option>
+    <option>Hung Hom</option>
+    <option>Tung Chung</option>
+    <option>Hong Kong</option>
+    <!-- Add more stations here -->
+  </select>
+
+  <label for="passOption">Monthly Pass:</label>
+  <select id="passOption">
+    <option>No Pass</option>
+    <option>Pass1: Sheung Shui/Wu Kai Sha ↔ East Tsim Sha Tsui</option>
+    <option>Pass2: Tuen Mun ↔ Nam Cheong</option>
+    <option>Pass3: Tuen Mun ↔ Hung Hom</option>
+    <option>Pass4: Tung Chung ↔ Nam Cheong</option>
+    <option>Pass5: Tung Chung ↔ Hong Kong</option>
+  </select>
+
+  <button onclick="calculateFare()">Calculate</button>
+
+  <table id="resultTable" style="display:none;">
+    <tr><td class="highlight">Fare with Pass:</td><td id="passFare"></td></tr>
+    <tr><td>Original Fare:</td><td id="originalFare"></td></tr>
+    <tr><td>Difference:</td><td id="difference"></td></tr>
+  </table>
+
+  <script>
+    // Example fare data (replace with real dataset)
+    const fareTable = {
+      "Admiralty-Central": 5,
+      "Admiralty-Tsim Sha Tsui": 10,
+      "Sheung Shui-Tsim Sha Tsui": 20,
+      "Tuen Mun-Hung Hom": 25,
+      "Tung Chung-Hong Kong": 30
+    };
+
+    function calculateFare() {
+      const from = document.getElementById("fromStation").value;
+      const to = document.getElementById("toStation").value;
+      const pass = document.getElementById("passOption").value;
+
+      const key = `${from}-${to}`;
+      const reverseKey = `${to}-${from}`;
+      const original = fareTable[key] || fareTable[reverseKey] || 0;
+
+      let passFare = original;
+
+      // Simplified pass logic (replace with full rules)
+      if (pass !== "No Pass") {
+        if (pass.includes("Pass1") && (from === "Sheung Shui" || from === "Wu Kai Sha" || to === "East Tsim Sha Tsui")) {
+          passFare = 0; // covered
+        } else {
+          passFare = original * 0.75; // 25% discount
+        }
+      }
+
+      const diff = original - passFare;
+
+      document.getElementById("passFare").innerText = `$${passFare.toFixed(2)}`;
+      document.getElementById("originalFare").innerText = `$${original.toFixed(2)}`;
+      document.getElementById("difference").innerText = `$${diff.toFixed(2)}`;
+      document.getElementById("resultTable").style.display = "table";
+    }
+  </script>
+</body>
+</html>
