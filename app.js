@@ -1,6 +1,6 @@
 // Live data endpoints
 const stationURL = `https://mtr-proxy.vineroz.workers.dev?url=https://opendata.mtr.com.hk/data/mtr_lines_and_stations.csv`;
-const fareURL = `https://mtr-proxy.vineroz.workers.dev?url=https://opendata.mtr.com.hk/data/mtrfares.csv`;
+const fareURL = `https://mtr-proxy.vineroz.workers.dev?url=https://opendata.mtr.com.hk/data/mtr_lines_fares.csv`;
 
 let stations = [];
 let fareTable = {};
@@ -56,35 +56,35 @@ async function loadStations() {
   rows.slice(1).forEach(r => {
     const line = r[0].replace(/"/g, "");
     const code = r[2].replace(/"/g, "");
+    const id   = r[3].replace(/"/g, "");
     const name = r[5].replace(/"/g, "");
-    const seq = parseFloat(r[6]);
+    const seq  = parseFloat(r[6]);
 
     if (!lines[line]) lines[line] = [];
-    // Deduplicate by code
-    if (!lines[line].some(st => st.code === code)) {
-      lines[line].push({ code, name, seq });
+    // Deduplicate by ID
+    if (!lines[line].some(st => st.id === id)) {
+      lines[line].push({ id, code, name, seq });
     }
   });
 
-  // Build dropdown
   const fromSelect = document.getElementById("fromStation");
-  const toSelect = document.getElementById("toStation");
+  const toSelect   = document.getElementById("toStation");
 
   Object.keys(lines).forEach(line => {
     // Add line header (disabled)
     const header = new Option(line, "");
     header.disabled = true;
-    header.style.backgroundColor = "#ddd"; // grey
+    header.style.backgroundColor = "#ddd";
     fromSelect.add(header);
     toSelect.add(header.cloneNode(true));
 
     // Sort stations by sequence
     lines[line].sort((a, b) => a.seq - b.seq);
 
-    // Add stations
+    // Add stations: show name, store ID
     lines[line].forEach(st => {
-      fromSelect.add(new Option(st.name, st.code));
-      toSelect.add(new Option(st.name, st.code));
+      fromSelect.add(new Option(st.name, st.id));
+      toSelect.add(new Option(st.name, st.id));
     });
   });
 }
@@ -94,11 +94,16 @@ async function loadFares() {
   const response = await fetch(fareURL);
   const text = await response.text();
   const rows = text.trim().split("\n").map(r => r.split(","));
+
   fareTable = {};
   rows.slice(1).forEach(r => {
-    const from = r[0], to = r[1], fare = parseFloat(r[2]);
-    if (from && to && !isNaN(fare)) {
-      fareTable[`${from}-${to}`] = fare;
+    const fromId = r[1].replace(/"/g, "");  // SRC_STATION_ID
+    const toId   = r[3].replace(/"/g, "");  // DEST_STATION_ID
+    const octAdult = parseFloat(r[4]);      // OCT_ADT_FARE
+
+    if (!isNaN(octAdult)) {
+      const key = `${fromId}-${toId}`;
+      fareTable[key] = octAdult;
     }
   });
 }
@@ -135,31 +140,18 @@ function getBoundaryStation(passOption) {
 
 // Main calculation
 function calculateFare() {
-  const from = document.getElementById("fromStation").value;
-  const to = document.getElementById("toStation").value;
-  const pass = document.getElementById("passOption").value.split(":")[0]; // "Pass2"
+  const fromId = document.getElementById("fromStation").value;
+  const toId   = document.getElementById("toStation").value;
+  const key    = `${fromId}-${toId}`;
+  const fare   = fareTable[key];
 
-  const original = lookupFare(from, to);
-  let passFare = original;
-
-  if (pass !== "No Pass") {
-    if (isCoveredByPass(from, to, pass)) {
-      passFare = 0; // fully covered
-    } else {
-      const boundary = getBoundaryStation(pass);
-      if (boundary) {
-        const connectionFare = lookupFare(boundary, to);
-        passFare = applyDiscount(connectionFare);
-      }
-    }
+  if (fare !== undefined) {
+    document.getElementById("fareResult").textContent =
+      `Octopus Adult Fare: $${fare.toFixed(1)}`;
+  } else {
+    document.getElementById("fareResult").textContent =
+      "No fare found for this route.";
   }
-
-  const diff = original - passFare;
-
-  document.getElementById("passFare").innerText = `$${passFare.toFixed(1)}`;
-  document.getElementById("originalFare").innerText = `$${original.toFixed(1)}`;
-  document.getElementById("difference").innerText = `$${diff.toFixed(1)}`;
-  document.getElementById("resultTable").style.display = "table";
 }
 
 // Initialize
