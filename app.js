@@ -1,6 +1,6 @@
 // Live data endpoints
-const stationURL = "https://opendata.mtr.com.hk/data/mtr_lines_and_stations.csv";
-const fareURL = "https://opendata.mtr.com.hk/data/mtrfares.csv";
+const stationURL = `https://api.allorigins.win/get?url=${encodeURIComponent("https://opendata.mtr.com.hk/data/mtr_lines_and_stations.csv")}`;
+const fareURL = `https://api.allorigins.win/get?url=${encodeURIComponent("https://opendata.mtr.com.hk/data/mtrfares.csv")}`;
 
 let stations = [];
 let fareTable = {};
@@ -48,10 +48,9 @@ function parseCSV(text) {
 // Load stations
 async function loadStations() {
   const response = await fetch(stationURL);
-  const text = await response.text();
-  const rows = parseCSV(text);
-
-  // Column 2 = English station name (index 2)
+  const data = await response.json();
+  const text = data.contents; // CSV text
+  const rows = text.trim().split("\n").map(r => r.split(","));
   stations = rows.slice(1).map(r => r[2]).filter(Boolean);
 
   const fromSelect = document.getElementById("fromStation");
@@ -65,10 +64,10 @@ async function loadStations() {
 // Load fares
 async function loadFares() {
   const response = await fetch(fareURL);
-  const text = await response.text();
-  const rows = parseCSV(text);
-
-  // Schema: FromStation, ToStation, Fare
+  const data = await response.json();
+  const text = data.contents; // CSV text
+  const rows = text.trim().split("\n").map(r => r.split(","));
+  fareTable = {};
   rows.slice(1).forEach(r => {
     const from = r[0], to = r[1], fare = parseFloat(r[2]);
     if (from && to && !isNaN(fare)) {
