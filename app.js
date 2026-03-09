@@ -5,29 +5,38 @@ const fareURL = `https://mtr-proxy.vineroz.workers.dev?url=https://opendata.mtr.
 let stations = [];
 let fareTable = {};
 
-// Coverage zones (expand with full station arrays)
+// Coverage zones (full official station arrays)
 const passCoverage = {
   "Pass1": [
-    "Sheung Shui","Fanling","Tai Po Market","University","Sha Tin","Tai Wai",
-    "Kowloon Tong","Mong Kok East","Hung Hom","East Tsim Sha Tsui",
-    "Wu Kai Sha","Diamond Hill","Ho Man Tin"
-    // Exclude Admiralty, Exhibition Centre, Racecourse, Lo Wu, Lok Ma Chau
+    // East Rail Line (ordinary class only)
+    "Sheung Shui","Fanling","Tai Wo","Tai Po Market","University",
+    "Sha Tin","Tai Wai","Kowloon Tong","Mong Kok East","Hung Hom","East Tsim Sha Tsui",
+    // Tuen Ma Line (Ma On Shan section)
+    "Wu Kai Sha","Ma On Shan","Heng On","Tai Shui Hang","Shek Mun","City One","Sha Tin Wai","Che Kung Temple","Tai Wai",
+    // Interchange stations
+    "Diamond Hill","Ho Man Tin"
+    // Excludes Admiralty, Exhibition Centre, Racecourse, Lo Wu, Lok Ma Chau
   ],
   "Pass2": [
-    "Tuen Mun","Siu Hong","Tin Shui Wai","Long Ping","Yuen Long","Kam Sheung Road",
-    "Tsuen Wan West","Mei Foo","Nam Cheong"
+    // Tuen Ma Line (West Rail section)
+    "Tuen Mun","Siu Hong","Tin Shui Wai","Long Ping","Yuen Long",
+    "Kam Sheung Road","Tsuen Wan West","Mei Foo","Nam Cheong"
   ],
   "Pass3": [
-    "Tuen Mun","Siu Hong","Tin Shui Wai","Long Ping","Yuen Long","Kam Sheung Road",
-    "Tsuen Wan West","Mei Foo","Nam Cheong","Austin","East Tsim Sha Tsui","Hung Hom"
+    // Same as Pass2 plus extension
+    "Tuen Mun","Siu Hong","Tin Shui Wai","Long Ping","Yuen Long",
+    "Kam Sheung Road","Tsuen Wan West","Mei Foo","Nam Cheong",
+    "Austin","East Tsim Sha Tsui","Hung Hom"
   ],
   "Pass4": [
+    // Tung Chung Line (partial)
     "Tung Chung","Sunny Bay","Tsing Yi","Nam Cheong"
-    // Exclude Disneyland Resort
+    // Excludes Disneyland Resort
   ],
   "Pass5": [
+    // Tung Chung Line (extended)
     "Tung Chung","Sunny Bay","Tsing Yi","Kowloon","Hong Kong","Central"
-    // Exclude Disneyland Resort
+    // Excludes Disneyland Resort
   ]
 };
 
@@ -153,13 +162,17 @@ function calculateFare() {
     // Base Octopus Adult fare
     const originalFare = fare;
 
+    // Get station names (needed for pass coverage check)
+    const fromName = stations.find(st => st.id === fromId)?.name || "";
+    const toName   = stations.find(st => st.id === toId)?.name || "";
+
     // Adjusted fare depending on pass type
     let passFare = originalFare;
     if (pass && pass !== "none") {
-      if (isMonthlyPassEligible(pass, fromId, toId)) {
+      if (isMonthlyPassEligible(pass, fromName, toName)) {
         passFare = 0; // unlimited rides within pass zone
-      } else if (isMonthlyPassConnection(pass, fromId, toId)) {
-        passFare = originalFare * 0.75; // 25% discount outside zone
+      } else if (isMonthlyPassConnection(pass, fromName, toName)) {
+        passFare = applyDiscount(originalFare); // 25% discount outside zone
       }
     }
 
@@ -191,6 +204,24 @@ function calculateFare() {
     row.appendChild(cell);
     table.appendChild(row);
   }
+}
+
+// Check if journey fully covered by pass
+function isMonthlyPassEligible(passOption, fromName, toName) {
+  const coverage = passCoverage[passOption];
+  return coverage && coverage.includes(fromName) && coverage.includes(toName);
+}
+
+// Check if journey connects outside pass zone (eligible for 25% discount)
+function isMonthlyPassConnection(passOption, fromName, toName) {
+  const coverage = passCoverage[passOption];
+  const boundary = passBoundary[passOption];
+  if (!coverage || !boundary) return false;
+
+  // One station inside coverage, one outside, and boundary is part of the route
+  const inside = coverage.includes(fromName) || coverage.includes(toName);
+  const outside = !coverage.includes(fromName) || !coverage.includes(toName);
+  return inside && outside;
 }
 
 // Initialize
