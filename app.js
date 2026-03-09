@@ -151,12 +151,9 @@ function getBoundaryStation(passOption) {
 function calculateFare() {
   const fromId = document.getElementById("fromStation").value;
   const toId   = document.getElementById("toStation").value;
-  const pass   = document.getElementById("monthlyPass").value; // dropdown for pass type
+  const pass   = document.getElementById("passOption").value; // matches your HTML
   const key    = `${fromId}-${toId}`;
   const fare   = fareTable[key];
-
-  const table = document.getElementById("fareTable");
-  table.innerHTML = ""; // clear previous results
 
   if (fare !== undefined) {
     // Base Octopus Adult fare
@@ -168,10 +165,11 @@ function calculateFare() {
 
     // Adjusted fare depending on pass type
     let passFare = originalFare;
-    if (pass && pass !== "none") {
-      if (isMonthlyPassEligible(pass, fromName, toName)) {
+    if (pass && !pass.startsWith("No Pass")) {
+      const passKey = pass.split(":")[0].trim(); // e.g. "Pass1"
+      if (isMonthlyPassEligible(passKey, fromName, toName)) {
         passFare = 0; // unlimited rides within pass zone
-      } else if (isMonthlyPassConnection(pass, fromName, toName)) {
+      } else if (isMonthlyPassConnection(passKey, fromName, toName)) {
         passFare = applyDiscount(originalFare); // 25% discount outside zone
       }
     }
@@ -179,30 +177,19 @@ function calculateFare() {
     // Difference
     const difference = originalFare - passFare;
 
-    // Build results table
-    const rows = [
-      ["Fare with selected pass", `$${passFare.toFixed(1)}`],
-      ["Original Octopus Adult fare", `$${originalFare.toFixed(1)}`],
-      ["Difference", `$${difference.toFixed(1)}`]
-    ];
+    // Update table cells
+    document.getElementById("passFare").textContent = `$${passFare.toFixed(1)}`;
+    document.getElementById("originalFare").textContent = `$${originalFare.toFixed(1)}`;
+    document.getElementById("difference").textContent = `$${difference.toFixed(1)}`;
 
-    rows.forEach(([label, value]) => {
-      const row = document.createElement("tr");
-      const cell1 = document.createElement("td");
-      const cell2 = document.createElement("td");
-      cell1.textContent = label;
-      cell2.textContent = value;
-      row.appendChild(cell1);
-      row.appendChild(cell2);
-      table.appendChild(row);
-    });
+    // Show the table
+    document.getElementById("resultTable").style.display = "table";
   } else {
-    const row = document.createElement("tr");
-    const cell = document.createElement("td");
-    cell.colSpan = 2;
-    cell.textContent = "No fare found for this route.";
-    row.appendChild(cell);
-    table.appendChild(row);
+    // No fare found
+    document.getElementById("passFare").textContent = "-";
+    document.getElementById("originalFare").textContent = "-";
+    document.getElementById("difference").textContent = "-";
+    document.getElementById("resultTable").style.display = "table";
   }
 }
 
