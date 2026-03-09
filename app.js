@@ -1,6 +1,6 @@
 // Live data endpoints
-const stationURL = `https://corsproxy.io/?${encodeURIComponent("https://opendata.mtr.com.hk/data/mtr_lines_and_stations.csv")}`;
-const fareURL = `https://corsproxy.io/?${encodeURIComponent("https://opendata.mtr.com.hk/data/mtrfares.csv")}`;
+const stationURL = `https://mtr-proxy.vineroz.workers.dev?url=https://opendata.mtr.com.hk/data/mtr_lines_and_stations.csv`;
+const fareURL = `https://mtr-proxy.vineroz.workers.dev?url=https://opendata.mtr.com.hk/data/mtrfares.csv`;
 
 let stations = [];
 let fareTable = {};
@@ -48,8 +48,7 @@ function parseCSV(text) {
 // Load stations
 async function loadStations() {
   const response = await fetch(stationURL);
-  const data = await response.text();
-  const text = data.contents; // CSV text
+  const text = await response.text();
   const rows = text.trim().split("\n").map(r => r.split(","));
   stations = rows.slice(1).map(r => r[2]).filter(Boolean);
 
@@ -64,8 +63,7 @@ async function loadStations() {
 // Load fares
 async function loadFares() {
   const response = await fetch(fareURL);
-  const data = await response.json();
-  const text = data.contents; // CSV text
+  const text = await response.text();
   const rows = text.trim().split("\n").map(r => r.split(","));
   fareTable = {};
   rows.slice(1).forEach(r => {
