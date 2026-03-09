@@ -5,14 +5,31 @@ const fareURL = "https://opendata.mtr.com.hk/data/mtrfares.csv";
 let stations = [];
 let fareTable = {};
 
-// Coverage zones (simplified — you’ll expand with full station arrays)
 const passCoverage = {
-  "Pass1": ["Sheung Shui", "Wu Kai Sha", "East Tsim Sha Tsui"], // East Rail + Tuen Ma section
-  "Pass2": ["Tuen Mun", "Nam Cheong"],                         // Tuen Mun ↔ Nam Cheong
-  "Pass3": ["Tuen Mun", "Hung Hom"],                           // Tuen Mun ↔ Hung Hom
-  "Pass4": ["Tung Chung", "Nam Cheong"],                       // Tung Chung ↔ Nam Cheong
-  "Pass5": ["Tung Chung", "Hong Kong"]                         // Tung Chung ↔ Hong Kong
+  "Pass1": [
+    "Sheung Shui","Fanling","Tai Po Market","University","Sha Tin",
+    "Tai Wai","Kowloon Tong","Mong Kok East","Hung Hom","East Tsim Sha Tsui",
+    "Wu Kai Sha","Tai Wai","Diamond Hill","Kowloon Tong","Ho Man Tin","East Tsim Sha Tsui"
+    // Exclude Admiralty, Exhibition Centre, Racecourse, Lo Wu, Lok Ma Chau
+  ],
+  "Pass2": [
+    "Tuen Mun","Siu Hong","Tin Shui Wai","Long Ping","Yuen Long","Kam Sheung Road",
+    "Tsuen Wan West","Mei Foo","Nam Cheong"
+  ],
+  "Pass3": [
+    "Tuen Mun","Siu Hong","Tin Shui Wai","Long Ping","Yuen Long","Kam Sheung Road",
+    "Tsuen Wan West","Mei Foo","Nam Cheong","Austin","East Tsim Sha Tsui","Hung Hom"
+  ],
+  "Pass4": [
+    "Tung Chung","Sunny Bay","Tsing Yi","Nam Cheong"
+    // Exclude Disneyland Resort
+  ],
+  "Pass5": [
+    "Tung Chung","Sunny Bay","Tsing Yi","Kowloon","Hong Kong","Central"
+    // Exclude Disneyland Resort
+  ]
 };
+
 
 // Boundary stations for connection journeys
 const passBoundary = {
