@@ -6,48 +6,58 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
+  height: 100vh; /* lock to viewport */
 }
 
 .container {
   text-align: center;
   max-width: 500px;
   width: 90%;
+  height: 100%; /* fill screen */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 h1 {
   color: #4fc3f7;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 label {
   display: block;
-  margin-top: 12px;
+  margin-top: 8px;
   text-align: left;
 }
 
 select, button {
   margin-top: 5px;
-  padding: 10px;
+  padding: 8px;
   width: 100%;
   background-color: #1e1e1e;
   color: #e0e0e0;
   border: 1px solid #444;
   border-radius: 4px;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 button {
   cursor: pointer;
-  margin-top: 15px;
+  margin-top: 12px;
 }
 
 button:hover {
   background-color: #333;
 }
 
+.table-wrapper {
+  flex-grow: 1;
+  max-height: 40vh; /* cap table height */
+  overflow-y: auto; /* scroll inside table only */
+  margin-top: 12px;
+}
+
 table {
-  margin-top: 20px;
   border-collapse: collapse;
   width: 100%;
   background-color: #1e1e1e;
@@ -55,8 +65,8 @@ table {
 
 td {
   border: 1px solid #444;
-  padding: 10px;
-  font-size: 16px;
+  padding: 6px; /* tighter padding */
+  font-size: 14px;
 }
 
 .highlight {
@@ -65,6 +75,6 @@ td {
 }
 
 @media (max-width: 600px) {
-  h1 { font-size: 22px; }
-  td, select, button { font-size: 14px; }
+  h1 { font-size: 20px; }
+  td, select, button { font-size: 13px; }
 }
