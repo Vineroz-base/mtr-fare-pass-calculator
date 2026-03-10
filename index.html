@@ -17,7 +17,6 @@
 
     <label for="monthlyPass">Monthly Pass:</label>
     <select id="monthlyPass">
-      <option value="none">No Pass</option>
       <option value="Pass1">Sheung Shui/Wu Kai Sha ↔ East Tsim Sha Tsui</option>
       <option value="Pass2">Tuen Mun ↔ Nam Cheong</option>
       <option value="Pass3">Tuen Mun ↔ Hung Hom</option>
@@ -27,11 +26,13 @@
 
     <button onclick="calculateFare()">Calculate</button>
 
-    <table id="resultTable" style="display:none;">
-      <tr><td class="highlight">Fare with Pass:</td><td id="passFare"></td></tr>
-      <tr><td>Original Fare:</td><td id="originalFare"></td></tr>
-      <tr><td>Difference:</td><td id="difference"></td></tr>
-    </table>
+    <div class="table-wrapper">
+      <table id="resultTable" style="display:none;">
+        <tr><td class="highlight">Fare with Pass:</td><td id="passFare"></td></tr>
+        <tr><td>Original Fare:</td><td id="originalFare"></td></tr>
+        <tr><td>Difference:</td><td id="difference"></td></tr>
+      </table>
+    </div>
   </div>
 
   <script src="app.js"></script>
