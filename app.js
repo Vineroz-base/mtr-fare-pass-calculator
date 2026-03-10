@@ -5,6 +5,70 @@ const fareURL = `https://mtr-proxy.vineroz.workers.dev?url=https://opendata.mtr.
 let stations = [];
 let fareTable = {};
 
+let currentLang = "zh"; // default language
+
+const translations = {
+  en: {
+    fromLine: "From Line",
+    fromStation: "From Station",
+    toLine: "To Line",
+    toStation: "To Station",
+    monthlyPass: "Monthly Pass",
+    calculate: "Calculate",
+    fareWithPass: "Fare with Pass:",
+    originalFare: "Original Fare:",
+    difference: "Difference:",
+    lines: {
+      "Tuen Ma Line": "Tuen Ma Line",
+      "East Rail Line": "East Rail Line",
+      "Tung Chung Line": "Tung Chung Line",
+      "Tsuen Wan Line": "Tsuen Wan Line",
+      "Kwun Tong Line": "Kwun Tong Line",
+      "Island Line": "Island Line",
+      "Tseung Kwan O Line": "Tseung Kwan O Line",
+      "South Island Line": "South Island Line",
+      "Disneyland Resort Line": "Disneyland Resort Line"
+    },
+    passes: {
+      "Pass1": "East Rail + Ma On Shan",
+      "Pass2": "Tuen Mun ↔ Nam Cheong",
+      "Pass3": "Tuen Mun ↔ Hung Hom",
+      "Pass4": "Tung Chung ↔ Nam Cheong",
+      "Pass5": "Tung Chung ↔ Hong Kong"
+    }
+  },
+  zh: {
+    fromLine: "起點路線",
+    fromStation: "起點車站",
+    toLine: "終點路線",
+    toStation: "終點車站",
+    monthlyPass: "全月通",
+    calculate: "計算",
+    fareWithPass: "使用全月通票票價：",
+    originalFare: "原價：",
+    difference: "差額：",
+    lines: {
+      "Tuen Ma Line": "屯馬綫",
+      "East Rail Line": "東鐵綫",
+      "Tung Chung Line": "東涌綫",
+      "Tsuen Wan Line": "荃灣綫",
+      "Kwun Tong Line": "觀塘綫",
+      "Island Line": "港島綫",
+      "Tseung Kwan O Line": "將軍澳綫",
+      "South Island Line": "南港島綫",
+      "Disneyland Resort Line": "迪士尼綫"
+    },
+    passes: {
+      "Pass1": "東鐵綫 + 屯馬綫",
+      "Pass2": "屯門 ↔ 南昌",
+      "Pass3": "屯門 ↔ 紅磡",
+      "Pass4": "東涌 ↔ 南昌",
+      "Pass5": "東涌 ↔ 香港"
+    }
+  }
+};
+
+
 const lineStations = {
   "Tuen Ma Line": ["103","102","101","100","99","98","97","96","67","90","11","91","92","93","84","64","80","111","53","20","114","115","116","117","118","119","120"],
   "East Rail Line": ["76","75","74","73","72","71","69","68","67","8","65","64","94","2","78"],
@@ -65,20 +129,47 @@ const passInterchangeIds = {
   "Pass5": ["21","53"]                // Lai King, Nam Cheong
 };
 
-// Parse CSV text into rows
-function parseCSV(text) {
-  return text.trim().split("\n").map(r => r.split(","));
+function setLanguage(lang) {
+  document.querySelector("label[for='fromLine']").textContent = translations[lang].fromLine;
+  document.querySelector("label[for='fromStation']").textContent = translations[lang].fromStation;
+  document.querySelector("label[for='toLine']").textContent = translations[lang].toLine;
+  document.querySelector("label[for='toStation']").textContent = translations[lang].toStation;
+  document.querySelector("label[for='monthlyPass']").textContent = translations[lang].monthlyPass;
+  document.querySelector("button[onclick='calculateFare()']").textContent = translations[lang].calculate;
+  document.querySelector("#resultTable tr:first-child td:first-child").textContent = translations[lang].fareWithPass;
+  document.querySelector("#resultTable tr:nth-child(2) td:first-child").textContent = translations[lang].originalFare;
+  document.querySelector("#resultTable tr:nth-child(3) td:first-child").textContent = translations[lang].difference;
+
+  // Refresh dropdowns and passes when language changes
+  updateStationDropdown("fromLine", "fromStation");
+  updateStationDropdown("toLine", "toStation");
+  populatePasses();
 }
+
+document.getElementById("langToggle").addEventListener("click", () => {
+  currentLang = currentLang === "en" ? "zh" : "en";
+  setLanguage(currentLang);
+  document.getElementById("langToggle").textContent = currentLang === "en" ? "🌐" : "🌐";
+});
 
 function populateLineDropdowns() {
   const fromLineSelect = document.getElementById("fromLine");
   const toLineSelect   = document.getElementById("toLine");
 
   Object.keys(lineStations).forEach(line => {
-    const option1 = new Option(line, line);
-    const option2 = new Option(line, line);
-    fromLineSelect.add(option1);
-    toLineSelect.add(option2);
+    const displayName = translations[currentLang].lines[line];
+    fromLineSelect.add(new Option(displayName, line));
+    toLineSelect.add(new Option(displayName, line));
+  });
+}
+
+function populatePasses() {
+  const passSelect = document.getElementById("monthlyPass");
+  passSelect.innerHTML = "";
+
+  Object.keys(passCoverageIds).forEach(passKey => {
+    const displayName = translations[currentLang].passes[passKey];
+    passSelect.add(new Option(displayName, passKey));
   });
 }
 
@@ -86,12 +177,11 @@ function updateStationDropdown(lineSelectId, stationSelectId) {
   const line = document.getElementById(lineSelectId).value;
   const stationSelect = document.getElementById(stationSelectId);
 
-  // Clear old options
   stationSelect.innerHTML = "";
 
-  // Add new options
   lineStations[line].forEach(stationId => {
-    const stationName = stations.find(st => st.id === stationId)?.name || stationId;
+    const station = stations.find(st => st.id === stationId);
+    const stationName = currentLang === "en" ? station?.en : station?.zh;
     stationSelect.add(new Option(stationName, stationId));
   });
 }
@@ -111,15 +201,16 @@ async function loadStations() {
     const line = r[0].replace(/"/g, "");
     const code = r[2].replace(/"/g, "");
     const id   = r[3].replace(/"/g, "");
-    const name = r[5].replace(/"/g, "");
+    const enName = r[5].replace(/"/g, "");
+    const zhName = r[4].replace(/"/g, "");
     const seq  = parseFloat(r[6]);
 
     if (!lines[line]) lines[line] = [];
-      if (!lines[line].some(st => st.id === id)) {
-        const stationObj = { id, code, name, seq };
-        lines[line].push(stationObj);
-        stations.push(stationObj);
-      }
+    if (!lines[line].some(st => st.id === id)) {
+      const stationObj = { id, code, en: enName, zh: zhName, seq };
+      lines[line].push(stationObj);
+      stations.push(stationObj);
+    }
   });
 
   console.log("[loadStations] Lines built:", Object.keys(lines));
@@ -134,9 +225,11 @@ async function loadStations() {
     toSelect.add(header.cloneNode(true));
 
     lines[line].sort((a, b) => a.seq - b.seq);
+
     lines[line].forEach(st => {
-      fromSelect.add(new Option(st.name, st.id));
-      toSelect.add(new Option(st.name, st.id));
+      const displayName = currentLang === "en" ? st.en : st.zh;
+      fromSelect.add(new Option(displayName, st.id));
+      toSelect.add(new Option(displayName, st.id));
     });
   });
 
@@ -180,8 +273,10 @@ function calculateFare() {
 
   if (fare !== undefined) {
     const originalFare = fare;
-    const fromName = stations.find(st => st.id === fromId)?.name || "";
-    const toName   = stations.find(st => st.id === toId)?.name || "";
+    const fromStation = stations.find(st => st.id === fromId);
+    const toStation   = stations.find(st => st.id === toId);
+    const fromName = currentLang === "en" ? fromStation?.en : fromStation?.zh;
+    const toName   = currentLang === "en" ? toStation?.en : toStation?.zh;
 
     console.log("[calculateFare] Station names:", { fromName, toName });
 
@@ -293,23 +388,21 @@ function getBoundaryStation(passOption) {
   return passBoundaryIds[passOption] || null;
 }
 
-// Initialize
 window.onload = async () => {
-  await loadStations();   // still loads the stations array from CSV
-  await loadFares();      // still loads fare table
+  await loadStations();
+  await loadFares();
 
-  // Populate line dropdowns
   populateLineDropdowns();
-
-  // Initialize station dropdowns for default line selections
   updateStationDropdown("fromLine", "fromStation");
   updateStationDropdown("toLine", "toStation");
+  populatePasses();
 
-  // Attach listeners so station lists update when line changes
+  // Initialize default language AFTER dropdowns exist
+  setLanguage(currentLang);
+
   document.getElementById("fromLine").addEventListener("change", () => {
     updateStationDropdown("fromLine", "fromStation");
   });
-
   document.getElementById("toLine").addEventListener("change", () => {
     updateStationDropdown("toLine", "toStation");
   });
