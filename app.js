@@ -5,6 +5,18 @@ const fareURL = `https://mtr-proxy.vineroz.workers.dev?url=https://opendata.mtr.
 let stations = [];
 let fareTable = {};
 
+const lineStations = {
+  "Tuen Ma Line": ["103","102","101","100","99","98","97","96","67","90","11","91","92","93","84","64","80","111","53","20","114","115","116","117","118","119","120"],
+  "East Rail Line": ["76","75","74","73","72","71","69","68","67","8","65","64","94","2","78"],
+  "Tung Chung Line": ["43","54","42","21","53","41","40","39"],
+  "Tsuen Wan Line": ["25","24","23","22","21","20","19","18","17","16","6","5","4","3","2","1"],
+  "Kwun Tong Line": ["49","48","38","15","14","13","12","11","10","9","8","7","16","6","5","84","85"],
+  "Island Line": ["37","36","35","34","33","32","31","30","29","28","27","2","1","26","81","82","83"],
+  "Tseung Kwan O Line": ["52","51","50","49","48","32","31","57"],
+  "South Island Line": ["2","86","87","88","89"],
+  "Disneyland Resort Line": ["54","55"]
+ };
+
 // Coverage zones (full official station arrays)
 const passCoverageIds = {
   "Pass1": [
@@ -56,6 +68,32 @@ const passInterchangeIds = {
 // Parse CSV text into rows
 function parseCSV(text) {
   return text.trim().split("\n").map(r => r.split(","));
+}
+
+function populateLineDropdowns() {
+  const fromLineSelect = document.getElementById("fromLine");
+  const toLineSelect   = document.getElementById("toLine");
+
+  Object.keys(lineStations).forEach(line => {
+    const option1 = new Option(line, line);
+    const option2 = new Option(line, line);
+    fromLineSelect.add(option1);
+    toLineSelect.add(option2);
+  });
+}
+
+function updateStationDropdown(lineSelectId, stationSelectId) {
+  const line = document.getElementById(lineSelectId).value;
+  const stationSelect = document.getElementById(stationSelectId);
+
+  // Clear old options
+  stationSelect.innerHTML = "";
+
+  // Add new options
+  lineStations[line].forEach(stationId => {
+    const stationName = stations.find(st => st.id === stationId)?.name || stationId;
+    stationSelect.add(new Option(stationName, stationId));
+  });
 }
 
 // Load stations
@@ -257,6 +295,23 @@ function getBoundaryStation(passOption) {
 
 // Initialize
 window.onload = async () => {
-  await loadStations();
-  await loadFares();
+  await loadStations();   // still loads the stations array from CSV
+  await loadFares();      // still loads fare table
+
+  // Populate line dropdowns
+  populateLineDropdowns();
+
+  // Initialize station dropdowns for default line selections
+  updateStationDropdown("fromLine", "fromStation");
+  updateStationDropdown("toLine", "toStation");
+
+  // Attach listeners so station lists update when line changes
+  document.getElementById("fromLine").addEventListener("change", () => {
+    updateStationDropdown("fromLine", "fromStation");
+  });
+
+  document.getElementById("toLine").addEventListener("change", () => {
+    updateStationDropdown("toLine", "toStation");
+  });
 };
+

@@ -83,6 +83,17 @@ td {
   color: #81c784;
 }
 
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* spacing between elements */
+  margin-bottom: 10px;
+}
+
+.row label {
+  min-width: 80px; /* keeps labels aligned */
+}
+
 /* Mobile fine-tuning */
 @media (max-width: 600px) {
   h1 { font-size: 7vw; }
