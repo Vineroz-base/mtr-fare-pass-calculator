@@ -1,55 +1,74 @@
-# MTR Fare Calculator with Monthly Pass Extra
+# MTR Fare‑Pass Calculator
 
-## 📌 Project Description
-This project is a lightweight, browser-based fare calculator for Hong Kong’s MTR system.  
-It allows users to select a journey between two stations and apply one of the **Monthly Pass Extra (全月通)** options to see the effective fare.  
-
-Unlike the official MTR Mobile app, which only shows standard fares, this tool integrates the **Monthly Pass Extra rules**:
-- Unlimited rides within designated pass coverage zones  
-- 25% discount on journeys outside the coverage  
-- Excludes Airport Express, Lo Wu, Lok Ma Chau, Racecourse, and First Class fares  
-
-The goal is to make savings transparent and help commuters decide whether a pass is worth buying.
+A simple, browser‑based tool that helps Hong Kong commuters understand how the **MTR Monthly Pass Extra (全月通)** affects their journey fares.
 
 ---
 
-## 🎛️ Features
-- Three simple combo boxes:
-  1. **From Station**  
-  2. **To Station**  
-  3. **Monthly Pass Option** (5 passes + no pass)  
-- Result table with three rows:
-  - **Fare with pass applied** (highlighted)  
-  - Original fare (normal font)  
-  - Fare difference (normal font)  
+## 🎯 What it does
+
+Select any two stations on the MTR network, choose one of the five Monthly‑Pass zones (or “no pass”), and the calculator will:
+
+- show the **effective fare with the pass applied** (highlighted),
+- display the **standard fare** for the same journey, and
+- compute the **savings or extra cost**.
+
+It applies all of the pass rules:
+
+- unlimited travel within the pass zone,
+- 25 % discount outside the zone,
+- excludes certain lines/stations (Airport Express, Lo Wu, Lok Ma Chau, Racecourse, First‑Class),
+- and uses the official fare table from DATA.GOV.HK.
 
 ---
 
-## 🗂️ Data Source
-- Base fares are taken from the official **DATA.GOV.HK MTR fare dataset**.  
-- Monthly Pass Extra rules are applied programmatically on top of the dataset.  
+## 🧰 Features
+
+- Dropdowns for **From**, **To** and **Pass option**.
+- Real‑time fare calculation with breakdown.
+- No backend – everything runs in the browser.
+- Hosted on GitHub Pages; easy to fork or modify.
 
 ---
 
-## 🚀 Usage
-1. Open the GitHub Page.  
-2. Select your journey (From → To).  
-3. Choose a Monthly Pass option.  
-4. Instantly see:  
-   - Effective fare with pass  
-   - Original fare  
-   - Difference  
+## 📂 Data
+
+Fare data is embedded as JSON, sourced directly from the government dataset.
+Monthly‑pass coverage and discount rules are implemented in JavaScript.
 
 ---
 
-## 🔧 Tech Stack
-- **Frontend:** HTML + CSS + JavaScript  
-- **Data:** Embedded JSON (fare table + pass coverage rules)  
-- **Hosting:** GitHub Pages  
+## 🚀 How to use
+
+1. Open `index.html` in your browser or visit the GitHub Pages site.
+2. Choose departure and arrival stations.
+3. Pick a Monthly Pass.
+4. Read the results in the three‑row table.
 
 ---
 
-## 📈 Future Enhancements
-- Add support for Light Rail and feeder buses.  
-- Visualize monthly savings based on usage frequency.  
-- Compare multiple passes side by side.  
+## 🛠 Technology
+
+- **HTML / CSS / vanilla JavaScript**
+- Static JSON data
+- No build step – just open the page
+
+---
+
+## 📌 Notes & Limitations
+
+- Not a substitute for the official MTR calculator; intended for quick comparisons only.
+- Light Rail, feeder buses and other transit modes are not yet included.
+- The fare dataset may occasionally require manual updates.
+
+---
+
+## 🔮 Future ideas
+
+- Support Light Rail / bus transfers.
+- Display monthly savings based on a user’s trip frequency.
+- Allow multi‑pass comparison.
+- Make the station list searchable/autocomplete.
+
+---
+
+✨ Feel free to fork, extend or deploy – the code is MIT‑licensed.
