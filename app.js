@@ -30,7 +30,7 @@ const translations = {
       "Disneyland Resort Line": "Disneyland Resort Line"
     },
     passes: {
-      "Pass1": "East Rail + Ma On Shan",
+      "Pass1": "East Rail Line + Tuen Ma Line",
       "Pass2": "Tuen Mun ↔ Nam Cheong",
       "Pass3": "Tuen Mun ↔ Hung Hom",
       "Pass4": "Tung Chung ↔ Nam Cheong",
@@ -44,7 +44,7 @@ const translations = {
     toStation: "終點車站",
     monthlyPass: "全月通",
     calculate: "計算",
-    fareWithPass: "使用全月通票票價：",
+    fareWithPass: "使用全月通票價：",
     originalFare: "原價：",
     difference: "差額：",
     lines: {
@@ -143,6 +143,7 @@ function setLanguage(lang) {
   // Refresh dropdowns and passes when language changes
   updateStationDropdown("fromLine", "fromStation");
   updateStationDropdown("toLine", "toStation");
+  populateLineDropdowns();
   populatePasses();
 }
 
@@ -155,6 +156,8 @@ document.getElementById("langToggle").addEventListener("click", () => {
 function populateLineDropdowns() {
   const fromLineSelect = document.getElementById("fromLine");
   const toLineSelect   = document.getElementById("toLine");
+  fromLineSelect.innerHTML = "";
+  toLineSelect.innerHTML = "";
 
   Object.keys(lineStations).forEach(line => {
     const displayName = translations[currentLang].lines[line];
@@ -179,7 +182,7 @@ function updateStationDropdown(lineSelectId, stationSelectId) {
 
   stationSelect.innerHTML = "";
 
-  lineStations[line].forEach(stationId => {
+  lineStations[line].slice().reverse().forEach(stationId => {
     const station = stations.find(st => st.id === stationId);
     const stationName = currentLang === "en" ? station?.en : station?.zh;
     stationSelect.add(new Option(stationName, stationId));
@@ -224,7 +227,7 @@ async function loadStations() {
     fromSelect.add(header);
     toSelect.add(header.cloneNode(true));
 
-    lines[line].sort((a, b) => a.seq - b.seq);
+    lines[line].sort((a, b) => b.seq - a.seq);
 
     lines[line].forEach(st => {
       const displayName = currentLang === "en" ? st.en : st.zh;
@@ -315,7 +318,6 @@ function calculateFare() {
   }
 }
 
-// Calculate connection fare for inside ↔ outside journeys
 function calculateConnectionFare(passOption, fromId, toId) {
   const coverage = passCoverageIds[passOption];
   if (!coverage) return null;
@@ -323,39 +325,55 @@ function calculateConnectionFare(passOption, fromId, toId) {
   const fromInside = coverage.includes(fromId);
   const toInside   = coverage.includes(toId);
 
-  // Only valid if exactly one station is inside and the other outside
   if (!((fromInside && !toInside) || (!fromInside && toInside))) {
     return null;
   }
 
-  // Collect boundary + interchange stations
   const boundary = getBoundaryStation(passOption);
-  
-  // Guard: boundary ↔ outside direct → no discount
   if (fromId === boundary || toId === boundary) {
     return null;
   }
 
   const interchanges = passInterchangeIds[passOption] || [];
   const candidates = [boundary, ...interchanges];
-
-  // Determine which is the outside station
   const outsideStation = fromInside ? toId : fromId;
 
-  // Compute fares from each candidate → outside station
+  const outsideName = currentLang === "en"
+    ? stations.find(st => st.id === outsideStation)?.en
+    : stations.find(st => st.id === outsideStation)?.zh;
+
+  console.log(`[calculateConnectionFare] Pass ${passOption}, outside station: ${outsideName} (${outsideStation})`);
+
+  console.log("[calculateConnectionFare] Candidates:");
+  candidates.forEach(c => {
+    const st = stations.find(s => s.id === c);
+    const name = currentLang === "en" ? st?.en : st?.zh;
+    console.log(`  - ${name} (${c})`);
+  });
+
   let cheapest = Infinity;
+  let cheapestCandidate = null;
   for (const candidate of candidates) {
     const fare = lookupFare(candidate, outsideStation);
+    const st = stations.find(s => s.id === candidate);
+    const name = currentLang === "en" ? st?.en : st?.zh;
+
+    console.log(`  Candidate ${name} (${candidate}) → ${outsideName}, fare = ${fare}`);
     if (fare > 0 && fare < cheapest) {
       cheapest = fare;
+      cheapestCandidate = name;
+      console.log(`    New cheapest found: ${cheapest} (via ${name})`);
     }
   }
 
-  // If no valid fare found, return null
-  if (cheapest === Infinity) return null;
+  if (cheapest === Infinity) {
+    console.log("[calculateConnectionFare] No valid fare found.");
+    return null;
+  }
 
-  // Apply 25% discount with rounding
-  return applyDiscount(cheapest);
+  const discounted = applyDiscount(cheapest);
+  console.log(`[calculateConnectionFare] Cheapest fare = ${cheapest} (via ${cheapestCandidate}), discounted = ${discounted}`);
+  return discounted;
 }
 
 // Lookup fare

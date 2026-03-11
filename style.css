@@ -7,17 +7,69 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100dvh; /* dynamic viewport height for iOS Safari */
+  min-height: 100vh;   /* full screen */
 }
 
-/* Container fills portrait width */
+:root {
+  --design-height: 2532; /* pick a baseline portrait height (e.g. iPhone 12 Pro logical height) */
+}
+
+.portrait-container {
+  aspect-ratio: 9 / 19.5;
+  height: 100dvh;
+  max-width: 100%;
+  background-color: #121212;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: auto;
+  transform-origin: top center;
+  /* dynamic scale: actual viewport height ÷ design height */
+  transform: scale(calc(100dvh / var(--design-height)));
+}
+
 .container {
   text-align: center;
-  width: 95vw;       /* nearly full width */
-  height: 100%;      /* fill vertical space */
+  width: 95%;        /* relative to portrait box */
+  height: 95%;       /* relative to portrait box */
   display: flex;
   flex-direction: column;
   justify-content: center;
+}
+
+.section {
+  margin-top: 2vh;
+}
+
+.section-title {
+  font-size: 4vw;
+  margin: 1vh 0;
+  text-align: left;
+  color: #ffffff;
+}
+
+/* Line + station on same row */
+.row.two-cols {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.field {
+  flex: 1;
+}
+
+/* Make labels smaller and tighter to save vertical space */
+.field label {
+  display: block;
+  font-size: 3vw;
+  margin-bottom: 0.5vh;
+}
+
+/* Let selects be a bit shorter to fit more on screen */
+.field select {
+  width: 100%;
+  padding: 1.2vh 1vw;
 }
 
 /* Title */
@@ -32,7 +84,7 @@ label {
   display: block;
   margin-top: 2vh;
   text-align: left;
-  font-size: 4vw;
+  font-size: 3vw;
 }
 
 /* Inputs & buttons */
@@ -59,9 +111,10 @@ button:hover {
 /* Table wrapper ensures no page scroll */
 .table-wrapper {
   flex-grow: 1;
-  max-height: 35vh; /* cap table height */
-  overflow-y: auto; /* scroll inside table only */
   margin-top: 2vh;
+  padding-top: 2vh;
+  border-top: 1px solid #333;
+  overflow: auto;
 }
 
 /* Result table */
@@ -95,25 +148,48 @@ td {
 }
 
 #langToggle {
-  position: fixed;       /* stays in viewport */
+  position: fixed;
   top: 2vh;
   right: 2vw;
-  width: 40px;           /* fixed square size */
-  height: 40px;
-  background-color: #1e1e1e;
-  border: 1px solid #444;
-  border-radius: 6px;
-  color: #e0e0e0;
-  font-size: 0.9rem;
+  width: 44px;
+  height: 44px;
+  background: rgba(20, 20, 20, 0.8);
+  border-radius: 50%;
+  border: 1px solid #4fc3f7;
+  color: #4fc3f7;          /* 🌐 color */
+  font-size: 1.3rem;       /* sized for the icon */
   cursor: pointer;
-  display: flex;         /* center text */
+  display: flex;
   justify-content: center;
   align-items: center;
-  padding: 0;            /* remove extra padding */
+  padding: 0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  transition:
+    transform 0.15s ease-out,
+    box-shadow 0.15s ease-out,
+    background 0.15s ease-out,
+    border-color 0.15s ease-out;
 }
 
 #langToggle:hover {
-  background-color: #333;
+  background: rgba(40, 40, 40, 0.9);
+  border-color: #81d4fa;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.65);
+}
+
+#langToggle:active {
+  transform: translateY(1px) scale(0.96);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+}
+
+
+/* On very small screens, allow wrapping to two lines instead of overflow */
+@media (max-width: 400px) {
+  .row.two-cols {
+    flex-direction: column;
+  }
 }
 
 /* Mobile fine-tuning */
@@ -121,3 +197,51 @@ td {
   h1 { font-size: 7vw; }
   label, select, button, td { font-size: 4.5vw; }
 }
+
+@media (orientation: landscape) {
+  .portrait-container {
+    aspect-ratio: auto;
+    height: auto;
+    width: 100%;
+    max-width: 100%;
+    transform: none;        /* no scaling in landscape */
+  }
+
+  .container {
+    height: auto;
+    max-height: 100vh;
+    padding: 2vh 3vw;
+    justify-content: flex-start;
+    overflow-y: auto;       /* allow scrolling inside */
+  }
+
+  h1 {
+    font-size: 3vw;        /* smaller main title */
+    margin-bottom: 2vh;
+  }
+
+  label {
+    font-size: 1.2vw;
+    margin-top: 1vh;
+  }
+
+  .field label {
+    font-size: 1.2vw; 
+  }
+
+  select,
+  button {
+    font-size: 1.6vw;
+    padding: 1vh 0.5vw;
+  }
+
+  td {
+    font-size: 1.6vw;
+    padding: 1vh 0.5vw;
+  }
+
+  .table-wrapper {
+    overflow-y: auto;
+  }
+}
+

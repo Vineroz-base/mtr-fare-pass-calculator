@@ -5,44 +5,62 @@
   <title>MTR Fare Calculator (全月通)</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>  
+<body>
+  <!-- Language toggle button -->
   <button id="langToggle">🌐</button>
-  <div class="container">
-    <h1>MTR Fare Calculator (全月通)</h1>
 
-  <div class="row">
-    <label for="fromLine">From Line:</label>
-    <select id="fromLine"></select>
+  <!-- Portrait container wrapper -->
+  <div class="portrait-container">
+    <div class="container">
+      <h1>MTR Fare Calculator (全月通)</h1>
 
-    <label for="fromStation">From Station:</label>
-    <select id="fromStation"></select>
-  </div>
+      <!-- From: line + station on one row -->
+      <div class="row two-cols">
+        <div class="field">
+          <label for="fromLine">From Line:</label>
+          <select id="fromLine"></select>
+        </div>
+        <div class="field">
+          <label for="fromStation">From Station:</label>
+          <select id="fromStation"></select>
+        </div>
+      </div>
 
-  <div class="row">
-    <label for="toLine">To Line:</label>
-    <select id="toLine"></select>
+      <!-- To: line + station on one row -->
+      <div class="row two-cols">
+        <div class="field">
+          <label for="toLine">To Line:</label>
+          <select id="toLine"></select>
+        </div>
+        <div class="field">
+          <label for="toStation">To Station:</label>
+          <select id="toStation"></select>
+        </div>
+      </div>
 
-    <label for="toStation">To Station:</label>
-    <select id="toStation"></select>
-  </div>
+      <!-- Monthly Pass -->
+      <div class="row">
+        <div class="field">
+          <label for="monthlyPass">Monthly Pass:</label>
+          <select id="monthlyPass">
+            <option value="Pass1">Sheung Shui/Wu Kai Sha ↔ East Tsim Sha Tsui</option>
+            <option value="Pass2">Tuen Mun ↔ Nam Cheong</option>
+            <option value="Pass3">Tuen Mun ↔ Hung Hom</option>
+            <option value="Pass4">Tung Chung ↔ Nam Cheong</option>
+            <option value="Pass5">Tung Chung ↔ Hong Kong</option>
+          </select>
+        </div>
+      </div>
 
-    <label for="monthlyPass">Monthly Pass:</label>
-    <select id="monthlyPass">
-      <option value="Pass1">Sheung Shui/Wu Kai Sha ↔ East Tsim Sha Tsui</option>
-      <option value="Pass2">Tuen Mun ↔ Nam Cheong</option>
-      <option value="Pass3">Tuen Mun ↔ Hung Hom</option>
-      <option value="Pass4">Tung Chung ↔ Nam Cheong</option>
-      <option value="Pass5">Tung Chung ↔ Hong Kong</option>
-    </select>
+      <button onclick="calculateFare()">Calculate</button>
 
-    <button onclick="calculateFare()">Calculate</button>
-
-    <div class="table-wrapper">
-      <table id="resultTable" style="display:none;">
-        <tr><td class="highlight">Fare with Pass:</td><td id="passFare"></td></tr>
-        <tr><td>Original Fare:</td><td id="originalFare"></td></tr>
-        <tr><td>Difference:</td><td id="difference"></td></tr>
-      </table>
+      <div class="table-wrapper">
+        <table id="resultTable" style="display:none;">
+          <tr><td class="highlight">Fare with Pass:</td><td id="passFare"></td></tr>
+          <tr><td>Original Fare:</td><td id="originalFare"></td></tr>
+          <tr><td>Difference:</td><td id="difference"></td></tr>
+        </table>
+      </div>
     </div>
   </div>
 
