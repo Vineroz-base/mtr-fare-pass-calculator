@@ -124,10 +124,15 @@ table {
   background-color: #1e1e1e;
 }
 
-td {
+td,
+th {
   border: 1px solid #444;
   padding: 2vh 1vw;
   font-size: 4vw;
+}
+
+th {
+  font-weight: normal;
 }
 
 /* Highlighted fare */
@@ -195,7 +200,7 @@ td {
 /* Mobile fine-tuning */
 @media (max-width: 600px) {
   h1 { font-size: 7vw; }
-  label, select, button, td { font-size: 4.5vw; }
+  label, select, button, td, th { font-size: 4.5vw; }
 }
 
 @media (orientation: landscape) {
@@ -235,7 +240,8 @@ td {
     padding: 1vh 0.5vw;
   }
 
-  td {
+  td,
+  th {
     font-size: 1.6vw;
     padding: 1vh 0.5vw;
   }
@@ -244,4 +250,3 @@ td {
     overflow-y: auto;
   }
 }
-

@@ -56,9 +56,14 @@
 
       <div class="table-wrapper">
         <table id="resultTable" style="display:none;">
-          <tr><td class="highlight">Fare with Pass:</td><td id="passFare"></td></tr>
-          <tr><td>Original Fare:</td><td id="originalFare"></td></tr>
-          <tr><td>Difference:</td><td id="difference"></td></tr>
+          <thead id="resultHeaders">
+            <tr><th></th><th id="bestFareHeader"></th></tr>
+          </thead>
+          <tbody>
+            <tr><th id="fareWithPassLabel" class="highlight" scope="row">Fare with Pass:</th><td id="passFare"></td></tr>
+            <tr><th id="originalFareLabel" scope="row">Original Fare:</th><td id="originalFare"></td></tr>
+            <tr><th id="differenceLabel" scope="row">Difference:</th><td id="difference"></td></tr>
+          </tbody>
         </table>
       </div>
     </div>

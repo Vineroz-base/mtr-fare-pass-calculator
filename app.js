@@ -18,6 +18,8 @@ const translations = {
     fareWithPass: "Fare with Pass:",
     originalFare: "Original Fare:",
     difference: "Difference:",
+    noExitFare: "No mid-journey exit",
+    reenterAt: station => `Exit and re-enter at ${station}`,
     lines: {
       "Tuen Ma Line": "Tuen Ma Line",
       "East Rail Line": "East Rail Line",
@@ -47,6 +49,8 @@ const translations = {
     fareWithPass: "使用全月通票價：",
     originalFare: "原價：",
     difference: "差額：",
+    noExitFare: "不在中途站出閘",
+    reenterAt: station => `於${station}站出閘／入閘`,
     lines: {
       "Tuen Ma Line": "屯馬綫",
       "East Rail Line": "東鐵綫",
@@ -130,21 +134,36 @@ const passInterchangeIds = {
 };
 
 function setLanguage(lang) {
+  const selectedFromLine = document.getElementById("fromLine").value;
+  const selectedFromStation = document.getElementById("fromStation").value;
+  const selectedToLine = document.getElementById("toLine").value;
+  const selectedToStation = document.getElementById("toStation").value;
+  const selectedPass = document.getElementById("monthlyPass").value;
+
   document.querySelector("label[for='fromLine']").textContent = translations[lang].fromLine;
   document.querySelector("label[for='fromStation']").textContent = translations[lang].fromStation;
   document.querySelector("label[for='toLine']").textContent = translations[lang].toLine;
   document.querySelector("label[for='toStation']").textContent = translations[lang].toStation;
   document.querySelector("label[for='monthlyPass']").textContent = translations[lang].monthlyPass;
   document.querySelector("button[onclick='calculateFare()']").textContent = translations[lang].calculate;
-  document.querySelector("#resultTable tr:first-child td:first-child").textContent = translations[lang].fareWithPass;
-  document.querySelector("#resultTable tr:nth-child(2) td:first-child").textContent = translations[lang].originalFare;
-  document.querySelector("#resultTable tr:nth-child(3) td:first-child").textContent = translations[lang].difference;
+  document.getElementById("fareWithPassLabel").textContent = translations[lang].fareWithPass;
+  document.getElementById("originalFareLabel").textContent = translations[lang].originalFare;
+  document.getElementById("differenceLabel").textContent = translations[lang].difference;
+  document.getElementById("bestFareHeader").textContent = translations[lang].noExitFare;
 
   // Refresh dropdowns and passes when language changes
+  populateLineDropdowns();
+  document.getElementById("fromLine").value = selectedFromLine;
+  document.getElementById("toLine").value = selectedToLine;
   updateStationDropdown("fromLine", "fromStation");
   updateStationDropdown("toLine", "toStation");
-  populateLineDropdowns();
+  document.getElementById("fromStation").value = selectedFromStation;
+  document.getElementById("toStation").value = selectedToStation;
   populatePasses();
+  document.getElementById("monthlyPass").value = selectedPass;
+  if (document.getElementById("resultTable").style.display !== "none") {
+    calculateFare();
+  }
 }
 
 document.getElementById("langToggle").addEventListener("click", () => {
@@ -269,6 +288,7 @@ function calculateFare() {
   const fromId = document.getElementById("fromStation").value;
   const toId   = document.getElementById("toStation").value;
   const pass   = document.getElementById("monthlyPass").value;
+  const passKey = pass && pass !== "none" ? pass.split(":")[0].trim() : null;
   const key    = `${fromId}-${toId}`;
   const fare   = fareTable[key];
 
@@ -284,8 +304,7 @@ function calculateFare() {
     console.log("[calculateFare] Station names:", { fromName, toName });
 
     let passFare = originalFare;
-    if (pass && pass !== "none") {
-      const passKey = pass.split(":")[0].trim();
+    if (passKey) {
       console.log("[calculateFare] Pass selected:", passKey);
 
       if (isCoveredByPass(fromId, toId, passKey)) {
@@ -296,7 +315,7 @@ function calculateFare() {
         if (connectionFare !== null) {
           console.log("[calculateFare] Journey is a boundary connection.");
           passFare = connectionFare;
-        } else {
+        } else if (!isOutsidePassCoverage(fromId, toId, passKey)) {
           console.log("[calculateFare] Journey outside pass zone.");
         }
       }
@@ -305,17 +324,160 @@ function calculateFare() {
     const difference = originalFare - passFare;
     console.log("[calculateFare] Results:", { originalFare, passFare, difference });
 
-    document.getElementById("passFare").textContent = `$${passFare.toFixed(1)}`;
-    document.getElementById("originalFare").textContent = `$${originalFare.toFixed(1)}`;
-    document.getElementById("difference").textContent = `$${difference.toFixed(1)}`;
+    renderFareResults(originalFare, [{
+      header: translations[currentLang].noExitFare,
+      fare: passFare
+    }, ...getReentryScenarios(fromId, toId, passKey)]);
     document.getElementById("resultTable").style.display = "table";
   } else {
     console.warn("[calculateFare] No fare found for key:", key);
-    document.getElementById("passFare").textContent = "-";
-    document.getElementById("originalFare").textContent = "-";
-    document.getElementById("difference").textContent = "-";
+    renderFareResults(null, [{ header: translations[currentLang].noExitFare, fare: null }]);
     document.getElementById("resultTable").style.display = "table";
   }
+}
+
+function renderFareResults(originalFare, results) {
+  const headers = document.getElementById("resultHeaders").rows[0];
+  while (headers.cells.length > 2) {
+    headers.deleteCell(-1);
+  }
+  document.querySelectorAll("#resultTable tbody tr").forEach(row => {
+    while (row.cells.length > 2) {
+      row.deleteCell(-1);
+    }
+  });
+
+  document.getElementById("bestFareHeader").textContent = results[0].header;
+  document.getElementById("passFare").textContent = formatFare(results[0].fare);
+  document.getElementById("originalFare").textContent = formatFare(originalFare);
+  document.getElementById("difference").textContent = formatFare(
+    originalFare === null || results[0].fare === null
+      ? null
+      : originalFare - results[0].fare
+  );
+
+  results.slice(1).forEach(result => {
+    const header = document.createElement("th");
+    header.scope = "col";
+    header.textContent = result.header;
+    headers.append(header);
+    [result.fare, originalFare, originalFare === null || result.fare === null
+      ? null
+      : originalFare - result.fare
+    ].forEach((value, rowIndex) => {
+      const cell = document.createElement("td");
+      cell.textContent = formatFare(value);
+      document.querySelector(`#resultTable tbody tr:nth-child(${rowIndex + 1})`).append(cell);
+    });
+  });
+}
+
+function formatFare(fare) {
+  if (fare === null) return "-";
+  return fare < 0
+    ? `-$${Math.abs(fare).toFixed(1)}`
+    : `$${fare.toFixed(1)}`;
+}
+
+function getReentryScenarios(fromId, toId, passOption) {
+  if (!isOutsidePassCoverage(fromId, toId, passOption)) return [];
+
+  const route = findStationRoute(fromId, toId);
+  if (!route) return [];
+
+  const candidates = passCoverageIds[passOption];
+  return candidates
+    .filter((stationId, index) =>
+      stationId !== fromId &&
+      stationId !== toId &&
+      (route.includes(stationId) ||
+        route.some(routeStationId => areAdjacentStations(stationId, routeStationId))) &&
+      candidates.indexOf(stationId) === index
+    )
+    .map(stationId => {
+      const firstLegFare = calculateReentryFirstLegFare(passOption, fromId, stationId);
+      const secondLegFare = calculateReentrySecondLegFare(passOption, stationId, toId);
+      if (firstLegFare <= 0 || secondLegFare <= 0) return null;
+
+      const fare = firstLegFare + secondLegFare;
+      const originalFare = lookupFare(fromId, toId);
+      if (fare >= originalFare) return null;
+
+      const station = stations.find(item => item.id === stationId);
+      const name = currentLang === "en" ? station?.en : station?.zh;
+      return {
+        header: translations[currentLang].reenterAt(name || stationId),
+        fare
+      };
+    })
+    .filter(result => result !== null);
+}
+
+function calculateReentryFirstLegFare(passOption, fromId, reentryStation) {
+  const fare = lookupFare(fromId, reentryStation);
+  if (reentryStation === getBoundaryStation(passOption)) return fare;
+
+  const connectionFare = calculateConnectionFare(passOption, fromId, reentryStation);
+  return connectionFare === null ? fare : connectionFare;
+}
+
+function calculateReentrySecondLegFare(passOption, reentryStation, toId) {
+  const candidates = [
+    getBoundaryStation(passOption),
+    ...(passInterchangeIds[passOption] || [])
+  ];
+
+  let cheapest = Infinity;
+  for (const candidate of candidates) {
+    const fare = lookupFare(candidate, toId);
+    if (fare <= 0) continue;
+
+    const effectiveFare = candidate === reentryStation || candidate === toId
+      ? fare
+      : applyDiscount(fare);
+    cheapest = Math.min(cheapest, effectiveFare);
+  }
+
+  return cheapest === Infinity ? 0 : cheapest;
+}
+
+function areAdjacentStations(firstId, secondId) {
+  return Object.values(lineStations).some(line => {
+    const index = line.indexOf(firstId);
+    return index >= 0 &&
+      (line[index - 1] === secondId || line[index + 1] === secondId);
+  });
+}
+
+function findStationRoute(fromId, toId) {
+  const graph = new Map();
+  Object.values(lineStations).forEach(line => {
+    for (let index = 1; index < line.length; index += 1) {
+      const previous = line[index - 1];
+      const current = line[index];
+      if (!graph.has(previous)) graph.set(previous, new Set());
+      if (!graph.has(current)) graph.set(current, new Set());
+      graph.get(previous).add(current);
+      graph.get(current).add(previous);
+    }
+  });
+
+  const queue = [[fromId]];
+  const visited = new Set([fromId]);
+  while (queue.length) {
+    const route = queue.shift();
+    const stationId = route[route.length - 1];
+    if (stationId === toId) return route;
+
+    for (const next of graph.get(stationId) || []) {
+      if (!visited.has(next)) {
+        visited.add(next);
+        queue.push([...route, next]);
+      }
+    }
+  }
+
+  return null;
 }
 
 function calculateConnectionFare(passOption, fromId, toId) {
@@ -357,10 +519,13 @@ function calculateConnectionFare(passOption, fromId, toId) {
     const fare = lookupFare(candidate, outsideStation);
     const st = stations.find(s => s.id === candidate);
     const name = currentLang === "en" ? st?.en : st?.zh;
+    const candidateFare = candidate === fromId || candidate === toId
+      ? fare
+      : applyDiscount(fare);
 
-    console.log(`  Candidate ${name} (${candidate}) → ${outsideName}, fare = ${fare}`);
-    if (fare > 0 && fare < cheapest) {
-      cheapest = fare;
+    console.log(`  Candidate ${name} (${candidate}) → ${outsideName}, fare = ${fare}, effective fare = ${candidateFare}`);
+    if (fare > 0 && candidateFare < cheapest) {
+      cheapest = candidateFare;
       cheapestCandidate = name;
       console.log(`    New cheapest found: ${cheapest} (via ${name})`);
     }
@@ -371,9 +536,13 @@ function calculateConnectionFare(passOption, fromId, toId) {
     return null;
   }
 
-  const discounted = applyDiscount(cheapest);
-  console.log(`[calculateConnectionFare] Cheapest fare = ${cheapest} (via ${cheapestCandidate}), discounted = ${discounted}`);
-  return discounted;
+  console.log(`[calculateConnectionFare] Cheapest fare = ${cheapest} (via ${cheapestCandidate})`);
+  return cheapest;
+}
+
+function isOutsidePassCoverage(fromId, toId, passOption) {
+  const coverage = passCoverageIds[passOption];
+  return coverage && !coverage.includes(fromId) && !coverage.includes(toId);
 }
 
 // Lookup fare
@@ -383,16 +552,10 @@ function lookupFare(from, to) {
 
 // Apply discount with rounding rule
 function applyDiscount(fare) {
-  let discounted = fare * 0.75;
-  let tenth = discounted * 10;
-  let remainder = tenth - Math.floor(tenth);
-
-  if (remainder > 0.5) {
-    discounted = (Math.floor(tenth) + 1) / 10; // round up
-  } else {
-    discounted = Math.floor(tenth) / 10; // round down
-  }
-  return discounted;
+  const discountedTenths = Math.round(fare * 10) * 3;
+  const roundedTenths = Math.floor(discountedTenths / 4)
+    + (discountedTenths % 4 > 2 ? 1 : 0);
+  return roundedTenths / 10;
 }
 
 // Check if journey fully covered
@@ -425,4 +588,3 @@ window.onload = async () => {
     updateStationDropdown("toLine", "toStation");
   });
 };
-

@@ -16,6 +16,8 @@ It applies all of the pass rules:
 
 - unlimited travel within the pass zone,
 - 25 % discount outside the zone,
+- compares the no-exit fare with same-station exit/re-entry options at pass-covered stations along the route,
+- shows only exit/re-entry options that cost less than the no-exit fare,
 - excludes certain lines/stations (Airport Express, Lo Wu, Lok Ma Chau, Racecourse, First‑Class),
 - and uses the official fare table from DATA.GOV.HK.
 
