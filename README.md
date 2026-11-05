@@ -10,6 +10,7 @@ Select any two stations on the MTR network, and the calculator will compare the 
 
 - always show the **standard fare**,
 - show pass discounts as rows and no-exit/re-entry choices as columns,
+- switch to expandable, pass-by-pass fare cards on mobile screens,
 - group passes or re-entry stations when their fare results match, with a shared fare breakdown for grouped re-entry stations, and
 - show savings beside each discounted fare.
 

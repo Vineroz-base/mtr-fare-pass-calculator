@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>MTR Fare Calculator (全月通)</title>
+  <title>全月通・一按即慳 | MTR Monthly Pass Optimizer</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,7 +12,8 @@
   <!-- Portrait container wrapper -->
   <div class="portrait-container">
     <div class="container">
-      <h1>MTR Fare Calculator (全月通)</h1>
+      <h1 id="appTitle">全月通・一按即慳</h1>
+      <p id="appSubtitle" class="app-subtitle">出閘再入閘，搵出至抵搭法</p>
 
       <!-- From: line + station on one row -->
       <div class="row two-cols">
@@ -47,6 +48,7 @@
       <button onclick="calculateFare()">Calculate</button>
 
       <div class="table-wrapper">
+        <div id="mobileFareResults" class="mobile-fare-results" aria-live="polite"></div>
         <table id="resultTable" style="display:none;">
           <thead></thead>
           <tbody></tbody>

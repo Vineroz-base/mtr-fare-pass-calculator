@@ -12,6 +12,8 @@ let currentLang = "zh"; // default language
 
 const translations = {
   en: {
+    appTitle: "MTR Monthly Pass Optimizer",
+    appSubtitle: "Tap, ride, save—find your best fare today.",
     fromLine: "From Line",
     fromStation: "From Station",
     toLine: "To Line",
@@ -66,6 +68,8 @@ const translations = {
     }
   },
   zh: {
+    appTitle: "全月通・一按即慳",
+    appSubtitle: "出閘再入閘，搵出至抵搭法",
     fromLine: "起點路線",
     fromStation: "起點車站",
     toLine: "終點路線",
@@ -242,6 +246,10 @@ function setLanguage(lang) {
   updateStationDropdown("toLine", "toStation");
   document.getElementById("fromStation").value = selectedFromStation;
   document.getElementById("toStation").value = selectedToStation;
+  document.documentElement.lang = lang;
+  document.getElementById("appTitle").textContent = translations[lang].appTitle;
+  document.getElementById("appSubtitle").textContent = translations[lang].appSubtitle;
+  document.title = "全月通・一按即慳 | MTR Monthly Pass Optimizer";
   if (document.getElementById("resultTable").style.display !== "none") {
     calculateFare();
   }
@@ -425,6 +433,7 @@ function renderFareResults(originalFare, results) {
 
   const columns = groupReentryColumns(results);
   const passGroups = groupPassResults(results);
+  renderMobileFareResults(originalFare, results, columns);
   const topHeader = document.createElement("tr");
   const passAxis = document.createElement("th");
   passAxis.scope = "col";
@@ -561,6 +570,132 @@ function renderFareResults(originalFare, results) {
   }
 
   closeRouteDiagram();
+}
+
+function renderMobileFareResults(originalFare, results, columns) {
+  const container = document.getElementById("mobileFareResults");
+  container.replaceChildren();
+
+  const standardFare = document.createElement("div");
+  standardFare.className = "mobile-standard-fare";
+  const standardLabel = document.createElement("span");
+  standardLabel.textContent = translations[currentLang].originalFare;
+  const standardValue = document.createElement("strong");
+  standardValue.textContent = formatFare(originalFare);
+  standardFare.append(standardLabel, standardValue);
+  container.append(standardFare);
+
+  if (!results.length) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "mobile-empty-state";
+    emptyState.textContent = translations[currentLang].noPassesSelected;
+    container.append(emptyState);
+    return;
+  }
+
+  results.forEach(entry => {
+    const passResults = columns.map(column => ({
+      column,
+      result: column.optionIds
+        .map(optionId => entry.results[optionId])
+        .find(Boolean)
+    })).filter(option => option.result);
+    const cheapestFare = passResults.length
+      ? Math.min(...passResults.map(option => option.result.fare))
+      : null;
+
+    const card = document.createElement("details");
+    card.className = "mobile-pass-card";
+    card.style.setProperty("--pass-color", passColors[entry.passKey]);
+    const summary = document.createElement("summary");
+    const passName = document.createElement("span");
+    passName.className = "mobile-pass-name";
+    passName.textContent = translations[currentLang].passes[entry.passKey];
+    summary.append(passName);
+
+    const bestResult = document.createElement("span");
+    bestResult.className = "mobile-best-result";
+    if (cheapestFare === null) {
+      bestResult.textContent = translations[currentLang].noDiscountResults;
+    } else {
+      const fare = document.createElement("strong");
+      fare.textContent = formatFare(cheapestFare);
+      const saving = document.createElement("span");
+      saving.textContent = translations[currentLang].saving(originalFare - cheapestFare);
+      bestResult.append(fare, saving);
+    }
+    summary.append(bestResult);
+    card.append(summary);
+
+    const options = document.createElement("div");
+    options.className = "mobile-pass-options";
+    passResults.forEach(({ column, result }) => {
+      const option = document.createElement("div");
+      option.className = "mobile-fare-option";
+
+      const label = document.createElement("div");
+      label.className = "mobile-fare-option-label";
+      if (column.optionIds[0] === "noExit") {
+        const routeOption = column.options[0];
+        if (routeOption?.routes?.length) {
+          renderRouteHeader(label, routeOption, translations[currentLang].noReentry);
+        } else {
+          label.textContent = translations[currentLang].noReentry;
+        }
+      } else if (column.options.length > 1) {
+        const group = document.createElement("details");
+        group.className = "mobile-station-group";
+        const groupSummary = document.createElement("summary");
+        groupSummary.textContent =
+          translations[currentLang].reentryStationGroup(column.options.length);
+        group.append(groupSummary);
+        const stationsList = document.createElement("div");
+        stationsList.className = "mobile-station-options";
+        column.options.forEach(stationOption => {
+          const stationLabel = document.createElement("div");
+          stationLabel.className = "mobile-station-option";
+          renderRouteHeader(stationLabel, stationOption, getStationName(stationOption.id));
+          stationsList.append(stationLabel);
+        });
+        group.append(stationsList);
+        label.append(group);
+      } else {
+        label.textContent = result.label;
+        const routeOption = column.options[0];
+        if (routeOption?.routes?.length) {
+          label.replaceChildren();
+          renderRouteHeader(label, routeOption);
+        }
+      }
+
+      const value = document.createElement("div");
+      value.className = "mobile-fare-option-value";
+      if (result.fare === cheapestFare) value.classList.add("is-cheapest");
+      value.style.setProperty("--pass-color", passColors[entry.passKey]);
+      value.append(document.createTextNode(formatFare(result.fare)));
+      const saving = document.createElement("span");
+      saving.className = "fare-saving";
+      saving.textContent = translations[currentLang].saving(originalFare - result.fare);
+
+      const optionResults = column.optionIds
+        .map(optionId => entry.results[optionId])
+        .filter(Boolean);
+      const breakdown = createFareBreakdownText(optionResults, column.optionIds.length > 1);
+      if (breakdown) saving.append(createFareBreakdown(breakdown));
+      value.append(saving);
+      option.append(label, value);
+      options.append(option);
+    });
+
+    if (!passResults.length && originalFare !== null) {
+      const noResults = document.createElement("p");
+      noResults.className = "mobile-no-pass-discount";
+      noResults.textContent = translations[currentLang].noDiscountResults;
+      options.append(noResults);
+    }
+    card.append(options);
+    container.append(card);
+  });
 }
 
 function renderRouteHeader(header, result, visibleLabel = result.label) {

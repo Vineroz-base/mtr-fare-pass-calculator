@@ -75,8 +75,14 @@ body {
 /* Title */
 h1 {
   color: #4fc3f7;
-  margin-bottom: 3vh;
+  margin-bottom: 0.6vh;
   font-size: 6vw;    /* scales with screen width */
+}
+
+.app-subtitle {
+  margin: 0 0 3vh;
+  color: #aaa;
+  font-size: 3.2vw;
 }
 
 /* Labels */
@@ -183,6 +189,10 @@ button:hover {
   padding-top: 2vh;
   box-shadow: inset 0 1px 0 #333;
   overflow: visible;
+}
+
+.mobile-fare-results {
+  display: none;
 }
 
 /* Result table */
@@ -573,13 +583,6 @@ th {
 }
 
 
-/* On very small screens, allow wrapping to two lines instead of overflow */
-@media (max-width: 400px) {
-  .row.two-cols {
-    flex-direction: column;
-  }
-}
-
 /* Mobile fine-tuning */
 @media (max-width: 600px) {
   h1 { font-size: 7vw; }
@@ -605,7 +608,12 @@ th {
 
   h1 {
     font-size: 3vw;        /* smaller main title */
+    margin-bottom: 0.5vh;
+  }
+
+  .app-subtitle {
     margin-bottom: 2vh;
+    font-size: 1.5vw;
   }
 
   label {
@@ -633,4 +641,188 @@ th {
     font-size: 0.8em;
   }
 
+}
+
+@media (max-width: 600px) {
+  .app-subtitle {
+    margin-bottom: 2vh;
+    font-size: max(14px, 3.2vw);
+  }
+
+  #resultTable {
+    display: none !important;
+  }
+
+  .mobile-fare-results {
+    display: block;
+    text-align: left;
+  }
+
+  .mobile-standard-fare {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.6em;
+    padding: 0.7em 0.8em;
+    border: 1px solid #444;
+    background: #1e1e1e;
+    font-size: 16px;
+  }
+
+  .mobile-standard-fare span {
+    color: #bdbdbd;
+  }
+
+  .mobile-pass-card {
+    margin-top: 0.5em;
+    border: 1px solid color-mix(in srgb, var(--pass-color) 60%, #444);
+    border-radius: 6px;
+    background: #1e1e1e;
+    font-size: 16px;
+  }
+
+  .mobile-pass-card > summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.6em;
+    padding: 0.75em;
+    cursor: pointer;
+    list-style-position: inside;
+  }
+
+  .mobile-pass-name {
+    flex: 1 1 auto;
+    color: var(--pass-color);
+    font-weight: bold;
+  }
+
+  .mobile-best-result {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.1em;
+    text-align: right;
+  }
+
+  .mobile-best-result strong {
+    color: var(--pass-color);
+  }
+
+  .mobile-best-result > span,
+  .mobile-no-pass-discount {
+    color: #999;
+    font-size: 14px;
+  }
+
+  .mobile-pass-options {
+    padding: 0 0.75em 0.75em;
+    border-top: 1px solid #383838;
+  }
+
+  .mobile-fare-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5em;
+    padding: 0.7em 0;
+  }
+
+  .mobile-fare-option + .mobile-fare-option {
+    border-top: 1px solid #383838;
+  }
+
+  .mobile-fare-option-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: #ccc;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-fare-option-label .route-header-toggle {
+    text-align: left;
+  }
+
+  .mobile-fare-option-value {
+    flex: 0 0 auto;
+    padding: 0.1em 0.35em;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .mobile-fare-option-value.is-cheapest {
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--pass-color) 12%, #1e1e1e);
+    color: var(--pass-color);
+  }
+
+  .mobile-fare-option-value .fare-saving {
+    font-size: 14px;
+  }
+
+  .mobile-fare-option-value .fare-breakdown-toggle {
+    font-size: 14px;
+  }
+
+  .mobile-station-group summary {
+    color: #aaa;
+    cursor: pointer;
+  }
+
+  .mobile-station-options {
+    max-height: 10em;
+    overflow-y: auto;
+    padding-left: 0.3em;
+  }
+
+  .mobile-station-option {
+    margin-top: 0.35em;
+  }
+
+  .mobile-empty-state,
+  .mobile-no-pass-discount {
+    margin: 0.5em 0;
+  }
+
+  .field label {
+    font-size: max(14px, 3vw);
+  }
+
+  .pass-toggle-group legend,
+  .pass-toggle,
+  .matrix-axis-label,
+  .matrix-reentry-group summary,
+  .route-stop-name {
+    font-size: max(14px, 0.78em);
+  }
+
+  .toggle-all-passes,
+  .route-choice {
+    font-size: max(14px, 0.68em);
+  }
+
+  .route-header-icon {
+    font-size: max(14px, 0.8em);
+  }
+
+  .fare-saving,
+  .fare-breakdown-tooltip {
+    font-size: max(14px, 0.72em);
+  }
+
+  .fare-breakdown-toggle {
+    font-size: max(14px, 0.65em);
+  }
+
+  .route-table h2 {
+    font-size: max(14px, 0.9em);
+  }
+
+  .route-stop-note,
+  .route-segment-count,
+  .route-segment-name {
+    font-size: max(14px, 0.62em);
+  }
 }
