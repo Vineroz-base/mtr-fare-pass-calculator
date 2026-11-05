@@ -38,33 +38,24 @@
         </div>
       </div>
 
-      <!-- Monthly Pass -->
-      <div class="row">
-        <div class="field">
-          <label for="monthlyPass">Monthly Pass:</label>
-          <select id="monthlyPass">
-            <option value="Pass1">Sheung Shui/Wu Kai Sha ↔ East Tsim Sha Tsui</option>
-            <option value="Pass2">Tuen Mun ↔ Nam Cheong</option>
-            <option value="Pass3">Tuen Mun ↔ Hung Hom</option>
-            <option value="Pass4">Tung Chung ↔ Nam Cheong</option>
-            <option value="Pass5">Tung Chung ↔ Hong Kong</option>
-          </select>
-        </div>
-      </div>
+      <fieldset class="pass-toggle-group">
+        <legend id="passToggleLegend">Monthly passes</legend>
+        <div id="passToggles" class="pass-toggles"></div>
+        <button id="toggleAllPasses" class="toggle-all-passes" type="button">Toggle all</button>
+      </fieldset>
 
       <button onclick="calculateFare()">Calculate</button>
 
       <div class="table-wrapper">
         <table id="resultTable" style="display:none;">
-          <thead id="resultHeaders">
-            <tr><th></th><th id="bestFareHeader"></th></tr>
-          </thead>
-          <tbody>
-            <tr><th id="fareWithPassLabel" class="highlight" scope="row">Fare with Pass:</th><td id="passFare"></td></tr>
-            <tr><th id="originalFareLabel" scope="row">Original Fare:</th><td id="originalFare"></td></tr>
-            <tr><th id="differenceLabel" scope="row">Difference:</th><td id="difference"></td></tr>
-          </tbody>
+          <thead></thead>
+          <tbody></tbody>
         </table>
+        <section id="routeTable" class="route-table" aria-live="polite" hidden>
+          <h2 id="routeTableTitle"></h2>
+          <div id="routeChoices" class="route-choices" role="group" aria-label="Route suggestions"></div>
+          <div id="routeDiagram" class="route-diagram-scroll"></div>
+        </section>
       </div>
     </div>
   </div>

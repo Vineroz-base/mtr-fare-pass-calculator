@@ -4,6 +4,9 @@ const fareURL = `https://mtr-proxy.vineroz.workers.dev?url=https://opendata.mtr.
 
 let stations = [];
 let fareTable = {};
+let fareBreakdownId = 0;
+let activeRouteButton = null;
+let activeRouteOption = null;
 
 let currentLang = "zh"; // default language
 
@@ -13,13 +16,36 @@ const translations = {
     fromStation: "From Station",
     toLine: "To Line",
     toStation: "To Station",
-    monthlyPass: "Monthly Pass",
     calculate: "Calculate",
-    fareWithPass: "Fare with Pass:",
+    monthlyPasses: "Monthly passes",
+    toggleAll: "Toggle all",
+    noPassesSelected: "Select a pass to see its results",
     originalFare: "Original Fare:",
-    difference: "Difference:",
-    noExitFare: "No mid-journey exit",
-    reenterAt: station => `Exit and re-enter at ${station}`,
+    saving: amount => `save $${amount.toFixed(1)}`,
+    passDiscountAxis: "Pass discounts",
+    reentryDiscountAxis: "Re-entry discounts",
+    noReentry: "No re-entry",
+    fewestInterchanges: "Fewest interchanges",
+    fewestStations: "Fewest stations",
+    interchangeCount: count => `${count} ${count === 1 ? "interchange" : "interchanges"}`,
+    stationCountLabel: count => `${count} ${count === 1 ? "station" : "stations"}`,
+    routeSuggestionLabel: "Route suggestions",
+    noDiscountResults: "No pass discount",
+    passLabels: labels => labels.join(" / "),
+    reenterAt: station => `Re-entry at ${station}`,
+    reentryStationGroup: count => `${count} re-entry stations with the same fare`,
+    reentryGroupBreakdown: (stationNames, origin, destination, firstLeg, secondLeg, fare) =>
+      `Same fare at: ${stationNames.join(", ")}\n${origin} → each station: ${firstLeg}\nEach station → ${destination}: ${secondLeg}\nTotal at each station: ${formatFare(fare)}`,
+    breakdownLabel: "Show fare calculation",
+    passCovered: fare => `Journey covered by pass: ${formatFare(fare)}`,
+    fullFare: "full fare",
+    viaStation: station => `via ${station}`,
+    total: "Total",
+    showRoute: "Show route",
+    routeFor: label => `Route: ${label}`,
+    interchange: "Interchange",
+    exitReenter: "Exit and re-enter",
+    stationCount: count => `${count} ${count === 1 ? "stop" : "stops"}`,
     lines: {
       "Tuen Ma Line": "Tuen Ma Line",
       "East Rail Line": "East Rail Line",
@@ -44,13 +70,36 @@ const translations = {
     fromStation: "起點車站",
     toLine: "終點路線",
     toStation: "終點車站",
-    monthlyPass: "全月通",
     calculate: "計算",
-    fareWithPass: "使用全月通票價：",
+    monthlyPasses: "全月通",
+    toggleAll: "全選／取消全選",
+    noPassesSelected: "請選擇全月通以顯示結果",
     originalFare: "原價：",
-    difference: "差額：",
-    noExitFare: "不在中途站出閘",
+    saving: amount => `省 $${amount.toFixed(1)}`,
+    passDiscountAxis: "全月通折扣",
+    reentryDiscountAxis: "出閘再入閘折扣",
+    noReentry: "不出閘",
+    fewestInterchanges: "最少轉車",
+    fewestStations: "最少車站",
+    interchangeCount: count => `${count}次轉車`,
+    stationCountLabel: count => `${count}站`,
+    routeSuggestionLabel: "路線建議",
+    noDiscountResults: "沒有全月通折扣",
+    passLabels: labels => labels.join("／"),
     reenterAt: station => `於${station}站出閘／入閘`,
+    reentryStationGroup: count => `${count}個相同票價的出閘／入閘車站`,
+    reentryGroupBreakdown: (stationNames, origin, destination, firstLeg, secondLeg, fare) =>
+      `以下車站票價相同：${stationNames.join('、')}\n${origin} → 各車站：${firstLeg}\n各車站 → ${destination}：${secondLeg}\n每次合共：${formatFare(fare)}`,
+    breakdownLabel: "顯示票價計算",
+    passCovered: fare => `全程由全月通覆蓋：${formatFare(fare)}`,
+    fullFare: "原價",
+    viaStation: station => `經${station}`,
+    total: "合共",
+    showRoute: "顯示路線",
+    routeFor: label => `路線：${label}`,
+    interchange: "轉車",
+    exitReenter: "出閘／入閘",
+    stationCount: count => `${count}站`,
     lines: {
       "Tuen Ma Line": "屯馬綫",
       "East Rail Line": "東鐵綫",
@@ -84,6 +133,34 @@ const lineStations = {
   "South Island Line": ["2","86","87","88","89"],
   "Disneyland Resort Line": ["54","55"]
  };
+
+const branchedLinePaths = {
+  "East Rail Line": [
+    ["2","94","64","65","8","67","68","69","71","72","73","74","75","76"],
+    ["2","94","64","65","8","67","68","69","71","72","73","74","75","78"]
+  ],
+  "Tseung Kwan O Line": [
+    ["31","32","48","49","50","51","52"],
+    ["31","32","48","49","50","57"]
+  ]
+};
+
+function getLinePaths(line) {
+  return branchedLinePaths[line] || [lineStations[line]];
+}
+
+const lineColors = {
+  "Airport Express": "#00888A",
+  "Disneyland Resort Line": "#F173AC",
+  "East Rail Line": "#53B7E8",
+  "Island Line": "#007DC5",
+  "Kwun Tong Line": "#00AB4E",
+  "South Island Line": "#BAC429",
+  "Tseung Kwan O Line": "#7D499D",
+  "Tsuen Wan Line": "#ED1D24",
+  "Tuen Ma Line": "#923011",
+  "Tung Chung Line": "#F7943E"
+};
 
 // Coverage zones (full official station arrays)
 const passCoverageIds = {
@@ -133,25 +210,31 @@ const passInterchangeIds = {
   "Pass5": ["21","53"]                // Lai King, Nam Cheong
 };
 
+const selectedPasses = new Set(Object.keys(passCoverageIds));
+const passColors = {
+  "Pass1": "#53B7E8",
+  "Pass2": "#923011",
+  "Pass3": "#F7943E",
+  "Pass4": "#BAC429",
+  "Pass5": "#00888A"
+};
+
 function setLanguage(lang) {
   const selectedFromLine = document.getElementById("fromLine").value;
   const selectedFromStation = document.getElementById("fromStation").value;
   const selectedToLine = document.getElementById("toLine").value;
   const selectedToStation = document.getElementById("toStation").value;
-  const selectedPass = document.getElementById("monthlyPass").value;
 
   document.querySelector("label[for='fromLine']").textContent = translations[lang].fromLine;
   document.querySelector("label[for='fromStation']").textContent = translations[lang].fromStation;
   document.querySelector("label[for='toLine']").textContent = translations[lang].toLine;
   document.querySelector("label[for='toStation']").textContent = translations[lang].toStation;
-  document.querySelector("label[for='monthlyPass']").textContent = translations[lang].monthlyPass;
   document.querySelector("button[onclick='calculateFare()']").textContent = translations[lang].calculate;
-  document.getElementById("fareWithPassLabel").textContent = translations[lang].fareWithPass;
-  document.getElementById("originalFareLabel").textContent = translations[lang].originalFare;
-  document.getElementById("differenceLabel").textContent = translations[lang].difference;
-  document.getElementById("bestFareHeader").textContent = translations[lang].noExitFare;
+  document.getElementById("passToggleLegend").textContent = translations[lang].monthlyPasses;
+  document.getElementById("toggleAllPasses").textContent = translations[lang].toggleAll;
+  renderPassToggles();
 
-  // Refresh dropdowns and passes when language changes
+  // Refresh dropdowns when language changes
   populateLineDropdowns();
   document.getElementById("fromLine").value = selectedFromLine;
   document.getElementById("toLine").value = selectedToLine;
@@ -159,8 +242,48 @@ function setLanguage(lang) {
   updateStationDropdown("toLine", "toStation");
   document.getElementById("fromStation").value = selectedFromStation;
   document.getElementById("toStation").value = selectedToStation;
-  populatePasses();
-  document.getElementById("monthlyPass").value = selectedPass;
+  if (document.getElementById("resultTable").style.display !== "none") {
+    calculateFare();
+  }
+}
+
+function renderPassToggles() {
+  const container = document.getElementById("passToggles");
+  if (!container) return;
+  container.replaceChildren();
+
+  Object.keys(passCoverageIds).forEach(passKey => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "pass-toggle";
+    button.textContent = translations[currentLang].passes[passKey];
+    button.style.setProperty("--pass-color", passColors[passKey]);
+    button.setAttribute("aria-pressed", String(selectedPasses.has(passKey)));
+    button.classList.toggle("is-selected", selectedPasses.has(passKey));
+    button.addEventListener("click", () => {
+      if (selectedPasses.has(passKey)) selectedPasses.delete(passKey);
+      else selectedPasses.add(passKey);
+      renderPassToggles();
+      refreshVisibleResults();
+    });
+    container.append(button);
+  });
+
+  const allSelected = selectedPasses.size === Object.keys(passCoverageIds).length;
+  const toggleAll = document.getElementById("toggleAllPasses");
+  toggleAll.setAttribute("aria-pressed", String(allSelected));
+  toggleAll.onclick = () => {
+    if (selectedPasses.size === Object.keys(passCoverageIds).length) {
+      selectedPasses.clear();
+    } else {
+      Object.keys(passCoverageIds).forEach(passKey => selectedPasses.add(passKey));
+    }
+    renderPassToggles();
+    refreshVisibleResults();
+  };
+}
+
+function refreshVisibleResults() {
   if (document.getElementById("resultTable").style.display !== "none") {
     calculateFare();
   }
@@ -182,16 +305,6 @@ function populateLineDropdowns() {
     const displayName = translations[currentLang].lines[line];
     fromLineSelect.add(new Option(displayName, line));
     toLineSelect.add(new Option(displayName, line));
-  });
-}
-
-function populatePasses() {
-  const passSelect = document.getElementById("monthlyPass");
-  passSelect.innerHTML = "";
-
-  Object.keys(passCoverageIds).forEach(passKey => {
-    const displayName = translations[currentLang].passes[passKey];
-    passSelect.add(new Option(displayName, passKey));
   });
 }
 
@@ -287,89 +400,356 @@ async function loadFares() {
 function calculateFare() {
   const fromId = document.getElementById("fromStation").value;
   const toId   = document.getElementById("toStation").value;
-  const pass   = document.getElementById("monthlyPass").value;
-  const passKey = pass && pass !== "none" ? pass.split(":")[0].trim() : null;
-  const key    = `${fromId}-${toId}`;
-  const fare   = fareTable[key];
+  const fare   = lookupFare(fromId, toId);
 
-  console.log("[calculateFare] Inputs:", { fromId, toId, pass, key, fare });
+  console.log("[calculateFare] Inputs:", { fromId, toId, fare });
 
-  if (fare !== undefined) {
+  if (fare > 0) {
     const originalFare = fare;
-    const fromStation = stations.find(st => st.id === fromId);
-    const toStation   = stations.find(st => st.id === toId);
-    const fromName = currentLang === "en" ? fromStation?.en : fromStation?.zh;
-    const toName   = currentLang === "en" ? toStation?.en : toStation?.zh;
 
-    console.log("[calculateFare] Station names:", { fromName, toName });
-
-    let passFare = originalFare;
-    if (passKey) {
-      console.log("[calculateFare] Pass selected:", passKey);
-
-      if (isCoveredByPass(fromId, toId, passKey)) {
-        console.log("[calculateFare] Journey fully covered by pass.");
-        passFare = 0;
-      } else {
-        const connectionFare = calculateConnectionFare(passKey, fromId, toId);
-        if (connectionFare !== null) {
-          console.log("[calculateFare] Journey is a boundary connection.");
-          passFare = connectionFare;
-        } else if (!isOutsidePassCoverage(fromId, toId, passKey)) {
-          console.log("[calculateFare] Journey outside pass zone.");
-        }
-      }
-    }
-
-    const difference = originalFare - passFare;
-    console.log("[calculateFare] Results:", { originalFare, passFare, difference });
-
-    renderFareResults(originalFare, [{
-      header: translations[currentLang].noExitFare,
-      fare: passFare
-    }, ...getReentryScenarios(fromId, toId, passKey)]);
+    renderFareResults(originalFare, getPassScenarios(fromId, toId, originalFare));
     document.getElementById("resultTable").style.display = "table";
   } else {
-    console.warn("[calculateFare] No fare found for key:", key);
-    renderFareResults(null, [{ header: translations[currentLang].noExitFare, fare: null }]);
+    console.warn("[calculateFare] No fare found for stations:", { fromId, toId });
+    renderFareResults(null, []);
     document.getElementById("resultTable").style.display = "table";
   }
 }
 
 function renderFareResults(originalFare, results) {
-  const headers = document.getElementById("resultHeaders").rows[0];
-  while (headers.cells.length > 2) {
-    headers.deleteCell(-1);
-  }
-  document.querySelectorAll("#resultTable tbody tr").forEach(row => {
-    while (row.cells.length > 2) {
-      row.deleteCell(-1);
-    }
-  });
+  const table = document.getElementById("resultTable");
+  const thead = table.tHead;
+  const tbody = table.tBodies[0];
+  thead.replaceChildren();
+  tbody.replaceChildren();
 
-  document.getElementById("bestFareHeader").textContent = results[0].header;
-  document.getElementById("passFare").textContent = formatFare(results[0].fare);
-  document.getElementById("originalFare").textContent = formatFare(originalFare);
-  document.getElementById("difference").textContent = formatFare(
-    originalFare === null || results[0].fare === null
-      ? null
-      : originalFare - results[0].fare
-  );
+  const columns = groupReentryColumns(results);
+  const passGroups = groupPassResults(results);
+  const topHeader = document.createElement("tr");
+  const passAxis = document.createElement("th");
+  passAxis.scope = "col";
+  passAxis.rowSpan = 2;
+  passAxis.className = "matrix-axis-label";
+  passAxis.textContent = translations[currentLang].passDiscountAxis;
+  topHeader.append(passAxis);
+  const reentryAxis = document.createElement("th");
+  reentryAxis.scope = "colgroup";
+  reentryAxis.colSpan = columns.length;
+  reentryAxis.className = "matrix-axis-label";
+  reentryAxis.textContent = translations[currentLang].reentryDiscountAxis;
+  topHeader.append(reentryAxis);
+  thead.append(topHeader);
 
-  results.slice(1).forEach(result => {
+  const columnHeader = document.createElement("tr");
+  columns.forEach(column => {
     const header = document.createElement("th");
     header.scope = "col";
-    header.textContent = result.header;
-    headers.append(header);
-    [result.fare, originalFare, originalFare === null || result.fare === null
-      ? null
-      : originalFare - result.fare
-    ].forEach((value, rowIndex) => {
-      const cell = document.createElement("td");
-      cell.textContent = formatFare(value);
-      document.querySelector(`#resultTable tbody tr:nth-child(${rowIndex + 1})`).append(cell);
-    });
+    header.className = "matrix-column-header";
+    const renderOption = option => {
+      const label = document.createElement("div");
+      label.className = "matrix-option-label";
+      if (option.routes?.length) {
+        renderRouteHeader(label, option);
+      } else {
+        label.textContent = option.label;
+      }
+      header.append(label);
+    };
+    if (column.options.length > 1 && column.optionIds.every(id => id !== "noExit")) {
+      const group = document.createElement("details");
+      group.className = "matrix-reentry-group";
+      const summary = document.createElement("summary");
+      summary.textContent = translations[currentLang].reentryStationGroup(column.options.length);
+      group.append(summary);
+      const options = document.createElement("div");
+      options.className = "matrix-reentry-group-options";
+      column.options.forEach(option => {
+        const label = document.createElement("div");
+        label.className = "matrix-option-label";
+        renderRouteHeader(label, option, getStationName(option.id));
+        options.append(label);
+      });
+      group.append(options);
+      header.append(group);
+    } else {
+      column.options.forEach(renderOption);
+    }
+    columnHeader.append(header);
   });
+  thead.append(columnHeader);
+
+  const standardRow = document.createElement("tr");
+  const standardLabel = document.createElement("th");
+  standardLabel.scope = "row";
+  standardLabel.className = "matrix-standard-label";
+  standardLabel.textContent = translations[currentLang].originalFare;
+  standardRow.append(standardLabel);
+  const standardCell = document.createElement("td");
+  standardCell.colSpan = columns.length;
+  standardCell.textContent = formatFare(originalFare);
+  standardRow.append(standardCell);
+  tbody.append(standardRow);
+
+  if (originalFare !== null) {
+    if (passGroups.length === 0) {
+      const emptyRow = document.createElement("tr");
+      const emptyCell = document.createElement("td");
+      emptyCell.colSpan = columns.length;
+      emptyCell.className = "matrix-empty-state";
+      emptyCell.textContent = translations[currentLang].noPassesSelected;
+      emptyRow.append(document.createElement("th"), emptyCell);
+      tbody.append(emptyRow);
+    }
+
+    passGroups.forEach(group => {
+      const row = document.createElement("tr");
+      const passLabel = document.createElement("th");
+      passLabel.scope = "row";
+      passLabel.className = "matrix-pass-label";
+      group.entries.forEach((entry, index) => {
+        if (index > 0) {
+          passLabel.append(document.createTextNode(currentLang === "en" ? " / " : "／"));
+        }
+        const label = document.createElement("span");
+        label.textContent = translations[currentLang].passes[entry.passKey];
+        label.style.setProperty("--pass-color", passColors[entry.passKey]);
+        passLabel.append(label);
+      });
+      row.append(passLabel);
+
+      const fares = columns
+        .map(column => group.entries[0].results[column.optionIds[0]]?.fare)
+        .filter(fare => fare !== undefined);
+      const cheapestFare = fares.length ? Math.min(...fares) : null;
+      columns.forEach(column => {
+        const cell = document.createElement("td");
+        cell.className = "matrix-fare-cell";
+        const result = group.entries[0].results[column.optionIds[0]] || null;
+        if (result) {
+          if (result.fare === cheapestFare) {
+            cell.classList.add("is-cheapest");
+            cell.style.setProperty("--pass-color", passColors[group.entries[0].passKey]);
+          }
+          cell.append(document.createTextNode(formatFare(result.fare)));
+          const saving = document.createElement("span");
+          saving.className = "fare-saving";
+          saving.textContent = translations[currentLang].saving(originalFare - result.fare);
+
+          const optionResults = [];
+          group.entries.forEach(entry => {
+            column.optionIds.forEach(optionId => {
+              const optionResult = entry.results[optionId];
+              if (optionResult) optionResults.push(optionResult);
+            });
+          });
+          const breakdown = createFareBreakdownText(optionResults, column.optionIds.length > 1);
+          if (breakdown) {
+            saving.append(createFareBreakdown(breakdown));
+          }
+          cell.append(saving);
+        } else if (passGroups.length === 1 && !results.some(entry =>
+          Object.values(entry.results).some(Boolean)
+        )) {
+          cell.textContent = translations[currentLang].noDiscountResults;
+        } else {
+          cell.textContent = "—";
+        }
+        row.append(cell);
+      });
+      tbody.append(row);
+    });
+  }
+
+  closeRouteDiagram();
+}
+
+function renderRouteHeader(header, result, visibleLabel = result.label) {
+  header.replaceChildren();
+  if (!result.routes?.length) {
+    header.textContent = result.label;
+    return;
+  }
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "route-header-toggle";
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.setAttribute("aria-controls", "routeTable");
+  toggle.setAttribute("aria-label", `${translations[currentLang].showRoute}: ${result.label}`);
+
+  const label = document.createElement("span");
+  label.textContent = visibleLabel;
+  const icon = document.createElement("span");
+  icon.className = "route-header-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = "⌄";
+  toggle.append(label, icon);
+  toggle.addEventListener("click", () => toggleRouteDiagram(toggle, result));
+  header.append(toggle);
+}
+
+function toggleRouteDiagram(button, result) {
+  const routeTable = document.getElementById("routeTable");
+  if (!routeTable.hidden && activeRouteButton === button && activeRouteOption === result) {
+    closeRouteDiagram();
+    return;
+  }
+
+  if (activeRouteButton) {
+    activeRouteButton.setAttribute("aria-expanded", "false");
+  }
+  activeRouteButton = button;
+  activeRouteOption = result;
+  activeRouteButton.setAttribute("aria-expanded", "true");
+  document.getElementById("routeTableTitle").textContent =
+    translations[currentLang].routeFor(result.label);
+  renderRouteChoices(result, 0);
+  routeTable.hidden = false;
+}
+
+function renderRouteChoices(result, selectedIndex) {
+  const choices = document.getElementById("routeChoices");
+  choices.replaceChildren();
+  choices.setAttribute("aria-label", translations[currentLang].routeSuggestionLabel);
+  result.routes.forEach((routeOption, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "route-choice";
+    button.textContent = `${routeOption.label} (${routeOption.detail})`;
+    button.setAttribute("aria-pressed", String(index === selectedIndex));
+    if (index === selectedIndex) button.classList.add("is-selected");
+    button.addEventListener("click", () => renderRouteChoices(result, index));
+    choices.append(button);
+  });
+  renderRouteDiagram(result.routes[selectedIndex]);
+}
+
+function closeRouteDiagram() {
+  document.getElementById("routeTable").hidden = true;
+  activeRouteOption = null;
+  if (activeRouteButton) {
+    activeRouteButton.setAttribute("aria-expanded", "false");
+    activeRouteButton = null;
+  }
+}
+
+function renderRouteDiagram(route) {
+  const container = document.getElementById("routeDiagram");
+  container.replaceChildren();
+
+  const diagram = document.createElement("div");
+  diagram.className = "route-line";
+  route.stations.forEach((station, index) => {
+    const stop = document.createElement("div");
+    stop.className = "route-stop";
+    if (station.isInterchange) stop.classList.add("is-interchange");
+
+    const name = document.createElement("span");
+    name.className = "route-stop-name";
+    name.textContent = station.name;
+    stop.append(name);
+
+    const marker = document.createElement("span");
+    marker.className = "route-stop-marker";
+    marker.setAttribute("aria-hidden", "true");
+    stop.append(marker);
+
+    if (station.isInterchange) {
+      const interchangeLabel = document.createElement("span");
+      interchangeLabel.className = "route-stop-note";
+      interchangeLabel.textContent = translations[currentLang].interchange;
+      stop.append(interchangeLabel);
+    }
+    if (station.isReentry) {
+      const reentryLabel = document.createElement("span");
+      reentryLabel.className = "route-stop-note";
+      reentryLabel.textContent = translations[currentLang].exitReenter;
+      stop.append(reentryLabel);
+    }
+    diagram.append(stop);
+
+    if (index < route.segments.length) {
+      const segment = document.createElement("div");
+      segment.className = "route-segment";
+      segment.style.setProperty("--route-color", lineColors[route.segments[index].line] || "#94989A");
+
+      const track = document.createElement("span");
+      track.className = "route-segment-track";
+      track.setAttribute("aria-hidden", "true");
+      const stationCount = document.createElement("span");
+      stationCount.className = "route-segment-count";
+      stationCount.textContent = translations[currentLang].stationCount(
+        route.segments[index].stationCount
+      );
+      const lineName = document.createElement("span");
+      lineName.className = "route-segment-name";
+      lineName.textContent = translations[currentLang].lines[route.segments[index].line]
+        || route.segments[index].line;
+      segment.append(stationCount, track, lineName);
+      diagram.append(segment);
+    }
+  });
+  container.append(diagram);
+}
+
+function createFareBreakdownText(results, canGroupReentries) {
+  const breakdowns = [...new Set(results.map(result => result.breakdown).filter(Boolean))];
+  if (!canGroupReentries) return breakdowns.join("\n\n") || "";
+
+  const details = results.map(result => result.breakdownDetails).filter(Boolean);
+  if (details.length < 2) return breakdowns.join("\n\n") || "";
+
+  const signature = detail => JSON.stringify([
+    detail.originName,
+    detail.destinationName,
+    detail.firstLegFormula,
+    detail.secondLegFormula,
+    detail.fare
+  ]);
+  if (new Set(details.map(signature)).size !== 1) {
+    return breakdowns.join("\n\n") || "";
+  }
+
+  const grouped = details[0];
+  const stationNames = [...new Set(details.map(detail => detail.stationName))];
+  if (stationNames.length < 2) return breakdowns.join("\n\n") || "";
+
+  return translations[currentLang].reentryGroupBreakdown(
+    stationNames,
+    grouped.originName,
+    grouped.destinationName,
+    grouped.firstLegFormula,
+    grouped.secondLegFormula,
+    grouped.fare
+  );
+}
+
+function createFareBreakdown(text) {
+  const wrapper = document.createElement("span");
+  wrapper.className = "fare-breakdown";
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "fare-breakdown-toggle";
+  toggle.textContent = "i";
+  toggle.setAttribute("aria-label", translations[currentLang].breakdownLabel);
+  toggle.setAttribute("aria-expanded", "false");
+
+  const tooltip = document.createElement("span");
+  tooltip.className = "fare-breakdown-tooltip";
+  tooltip.id = `fare-breakdown-${fareBreakdownId += 1}`;
+  tooltip.setAttribute("role", "tooltip");
+  tooltip.textContent = text;
+  toggle.setAttribute("aria-controls", tooltip.id);
+  toggle.setAttribute("aria-describedby", tooltip.id);
+
+  toggle.addEventListener("click", () => {
+    const isOpen = wrapper.classList.toggle("is-open");
+    toggle.setAttribute("aria-expanded", String(isOpen));
+  });
+
+  wrapper.append(toggle, tooltip);
+  return wrapper;
 }
 
 function formatFare(fare) {
@@ -379,46 +759,232 @@ function formatFare(fare) {
     : `$${fare.toFixed(1)}`;
 }
 
-function getReentryScenarios(fromId, toId, passOption) {
+function getPassScenarios(fromId, toId, originalFare) {
+  const routes = findStationRoutes(fromId, toId);
+  return Object.keys(passCoverageIds)
+    .filter(passKey => selectedPasses.has(passKey))
+    .map(passKey => {
+    const covered = isCoveredByPass(fromId, toId, passKey);
+    const connection = covered
+      ? null
+      : findCheapestConnectionCalculation(passKey, fromId, toId);
+    const passFare = covered ? 0 : connection?.fare ?? originalFare;
+    const results = {};
+    if (passFare < originalFare) {
+      results.noExit = {
+        label: translations[currentLang].noReentry,
+        fare: passFare,
+        breakdown: covered
+          ? translations[currentLang].passCovered(passFare)
+          : connection?.formula,
+        routes: createRouteOptions(routes, null)
+      };
+    }
+
+    getReentryScenarios(fromId, toId, passKey, routes).forEach(result => {
+      results[result.stationId] = {
+        ...result,
+        label: result.label
+      };
+    });
+    return { passKey, results, routes: createRouteOptions(routes, null) };
+    });
+}
+
+function groupPassResults(passResults) {
+  const resultIds = [...new Set(
+    passResults.flatMap(entry => Object.keys(entry.results))
+  )];
+  const discountedPasses = passResults.filter(entry =>
+    Object.keys(entry.results).length > 0
+  );
+  const entries = discountedPasses.length ? discountedPasses : passResults;
+  const groups = new Map();
+
+  entries.forEach(entry => {
+    const signature = JSON.stringify(resultIds.map(id => entry.results[id]?.fare ?? null));
+    if (!groups.has(signature)) groups.set(signature, []);
+    groups.get(signature).push(entry);
+  });
+  return [...groups.values()].map(entries => ({ entries }));
+}
+
+function groupReentryColumns(passResults) {
+  const optionIds = [
+    "noExit",
+    ...new Set(passResults.flatMap(entry =>
+      Object.keys(entry.results).filter(id => id !== "noExit")
+    ))
+  ];
+  const passGroups = groupPassResults(passResults);
+  const options = optionIds.map(id => {
+    if (id === "noExit") {
+      return {
+        id,
+        label: translations[currentLang].noReentry,
+        routes: passResults.find(entry => entry.routes)?.routes || []
+      };
+    }
+
+    const result = passResults.find(entry => entry.results[id])?.results[id];
+    return {
+      id,
+      label: result?.label || id,
+      routes: result?.routes || []
+    };
+  });
+  const grouped = new Map();
+
+  options.forEach(option => {
+    const signature = JSON.stringify(passGroups.map(group =>
+      group.entries[0].results[option.id]?.fare ?? null
+    ));
+    const key = option.id === "noExit" ? `noExit:${signature}` : `reentry:${signature}`;
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(option);
+  });
+
+  return [...grouped.values()].map(options => ({
+    options,
+    optionIds: options.map(option => option.id)
+  }));
+}
+
+function getReentryScenarios(fromId, toId, passOption, routes = findStationRoutes(fromId, toId)) {
   if (!isOutsidePassCoverage(fromId, toId, passOption)) return [];
 
-  const route = findStationRoute(fromId, toId);
-  if (!route) return [];
+  if (!routes.fewestInterchanges && !routes.fewestStations) return [];
+  const candidateRoutes = [
+    { type: "fewestInterchanges", route: routes.fewestInterchanges },
+    { type: "fewestStations", route: routes.fewestStations }
+  ].filter(option => option.route);
 
   const candidates = passCoverageIds[passOption];
   return candidates
     .filter((stationId, index) =>
       stationId !== fromId &&
       stationId !== toId &&
-      (route.includes(stationId) ||
-        route.some(routeStationId => areAdjacentStations(stationId, routeStationId))) &&
+      candidateRoutes.some(option => option.route.includes(stationId)) &&
       candidates.indexOf(stationId) === index
     )
     .map(stationId => {
-      const firstLegFare = calculateReentryFirstLegFare(passOption, fromId, stationId);
-      const secondLegFare = calculateReentrySecondLegFare(passOption, stationId, toId);
-      if (firstLegFare <= 0 || secondLegFare <= 0) return null;
+      const firstLeg = calculateReentryFirstLegFare(passOption, fromId, stationId);
+      const secondLeg = calculateReentrySecondLegFare(passOption, stationId, toId);
+      if (firstLeg.fare <= 0 || secondLeg.fare <= 0) return null;
 
-      const fare = firstLegFare + secondLegFare;
+      const fare = firstLeg.fare + secondLeg.fare;
       const originalFare = lookupFare(fromId, toId);
       if (fare >= originalFare) return null;
 
       const station = stations.find(item => item.id === stationId);
       const name = currentLang === "en" ? station?.en : station?.zh;
+      const originName = getStationName(fromId);
+      const destinationName = getStationName(toId);
+      const stationRoutes = candidateRoutes
+        .filter(option => option.route.includes(stationId))
+        .map(option => createRouteInfo(option.route, stationId, option.type))
+        .filter(Boolean);
       return {
-        header: translations[currentLang].reenterAt(name || stationId),
-        fare
+        stationId,
+        label: translations[currentLang].reenterAt(name || stationId),
+        fare,
+        routes: stationRoutes,
+        breakdownDetails: {
+          stationName: name || stationId,
+          originName,
+          destinationName,
+          firstLegFormula: firstLeg.formula,
+          secondLegFormula: secondLeg.formula,
+          fare
+        },
+        breakdown: [
+          `${originName} → ${name}: ${firstLeg.formula}`,
+          `${name} → ${destinationName}: ${secondLeg.formula}`,
+          `${translations[currentLang].total}: ${formatFare(fare)}`
+        ].join("\n")
       };
     })
     .filter(result => result !== null);
 }
 
+function createRouteOptions(routes, reentryStation) {
+  if (!routes) return [];
+  return [
+    ["fewestInterchanges", routes.fewestInterchanges],
+    ["fewestStations", routes.fewestStations]
+  ]
+    .filter(([type, route], index, options) =>
+      route && options.findIndex(([, otherRoute]) =>
+        JSON.stringify(otherRoute) === JSON.stringify(route)
+      ) === index
+    )
+    .map(([type, route]) => createRouteInfo(route, reentryStation, type))
+    .filter(Boolean);
+}
+
+function createRouteInfo(route, reentryStation, type) {
+  if (!route || route.length < 2) return null;
+
+  const edgeLines = route.slice(0, -1).map((stationId, index) =>
+    getLineForSegment(stationId, route[index + 1])
+  );
+  if (edgeLines.some(line => !line)) return null;
+
+  const landmarkIndexes = new Set([0, route.length - 1]);
+  for (let index = 1; index < route.length - 1; index += 1) {
+    if (edgeLines[index - 1] !== edgeLines[index] || route[index] === reentryStation) {
+      landmarkIndexes.add(index);
+    }
+  }
+
+  const indexes = [...landmarkIndexes].sort((a, b) => a - b);
+  const transferCount = edgeLines.slice(1).reduce((count, line, index) =>
+    count + (line === edgeLines[index] ? 0 : 1), 0);
+  const details = {
+    fewestInterchanges: translations[currentLang].fewestInterchanges,
+    fewestStations: translations[currentLang].fewestStations
+  };
+  const detail = type === "fewestStations"
+    ? translations[currentLang].stationCountLabel(route.length - 1)
+    : translations[currentLang].interchangeCount(transferCount);
+  return {
+    type,
+    label: details[type],
+    detail,
+    transferCount,
+    stationCount: route.length - 1,
+    stations: indexes.map(index => ({
+      id: route[index],
+      name: getStationName(route[index]),
+      isInterchange: index > 0 && index < route.length - 1 &&
+        edgeLines[index - 1] !== edgeLines[index],
+      isReentry: route[index] === reentryStation
+    })),
+    segments: indexes.slice(0, -1).map((startIndex, index) => ({
+      line: edgeLines[startIndex],
+      stationCount: indexes[index + 1] - startIndex
+    }))
+  };
+}
+
+function getLineForSegment(fromId, toId) {
+  return Object.entries(lineStations).find(([line]) =>
+    getLinePaths(line).some(stationIds => {
+      const index = stationIds.indexOf(fromId);
+      return index >= 0 &&
+        (stationIds[index - 1] === toId || stationIds[index + 1] === toId);
+    })
+  )?.[0] || null;
+}
+
 function calculateReentryFirstLegFare(passOption, fromId, reentryStation) {
   const fare = lookupFare(fromId, reentryStation);
-  if (reentryStation === getBoundaryStation(passOption)) return fare;
+  if (reentryStation === getBoundaryStation(passOption)) {
+    return { fare, formula: `${formatFare(fare)} (${translations[currentLang].fullFare})` };
+  }
 
-  const connectionFare = calculateConnectionFare(passOption, fromId, reentryStation);
-  return connectionFare === null ? fare : connectionFare;
+  return findCheapestConnectionCalculation(passOption, fromId, reentryStation)
+    || { fare, formula: `${formatFare(fare)} (${translations[currentLang].fullFare})` };
 }
 
 function calculateReentrySecondLegFare(passOption, reentryStation, toId) {
@@ -427,117 +993,125 @@ function calculateReentrySecondLegFare(passOption, reentryStation, toId) {
     ...(passInterchangeIds[passOption] || [])
   ];
 
-  let cheapest = Infinity;
+  let cheapest = null;
   for (const candidate of candidates) {
     const fare = lookupFare(candidate, toId);
     if (fare <= 0) continue;
 
-    const effectiveFare = candidate === reentryStation || candidate === toId
-      ? fare
-      : applyDiscount(fare);
-    cheapest = Math.min(cheapest, effectiveFare);
-  }
-
-  return cheapest === Infinity ? 0 : cheapest;
-}
-
-function areAdjacentStations(firstId, secondId) {
-  return Object.values(lineStations).some(line => {
-    const index = line.indexOf(firstId);
-    return index >= 0 &&
-      (line[index - 1] === secondId || line[index + 1] === secondId);
-  });
-}
-
-function findStationRoute(fromId, toId) {
-  const graph = new Map();
-  Object.values(lineStations).forEach(line => {
-    for (let index = 1; index < line.length; index += 1) {
-      const previous = line[index - 1];
-      const current = line[index];
-      if (!graph.has(previous)) graph.set(previous, new Set());
-      if (!graph.has(current)) graph.set(current, new Set());
-      graph.get(previous).add(current);
-      graph.get(current).add(previous);
-    }
-  });
-
-  const queue = [[fromId]];
-  const visited = new Set([fromId]);
-  while (queue.length) {
-    const route = queue.shift();
-    const stationId = route[route.length - 1];
-    if (stationId === toId) return route;
-
-    for (const next of graph.get(stationId) || []) {
-      if (!visited.has(next)) {
-        visited.add(next);
-        queue.push([...route, next]);
-      }
+    const discounted = candidate !== reentryStation && candidate !== toId;
+    const effectiveFare = discounted ? applyDiscount(fare) : fare;
+    if (!cheapest || effectiveFare < cheapest.fare) {
+      cheapest = {
+        fare: effectiveFare,
+        formula: discounted
+          ? `${formatFare(fare)} × 75% = ${formatFare(effectiveFare)} (${translations[currentLang].viaStation(getStationName(candidate))})`
+          : `${formatFare(fare)} (${translations[currentLang].fullFare})`
+      };
     }
   }
 
-  return null;
+  return cheapest || { fare: 0, formula: "" };
 }
 
-function calculateConnectionFare(passOption, fromId, toId) {
+function findCheapestConnectionCalculation(passOption, fromId, toId) {
   const coverage = passCoverageIds[passOption];
   if (!coverage) return null;
 
   const fromInside = coverage.includes(fromId);
-  const toInside   = coverage.includes(toId);
-
-  if (!((fromInside && !toInside) || (!fromInside && toInside))) {
-    return null;
-  }
+  const toInside = coverage.includes(toId);
+  if (!((fromInside && !toInside) || (!fromInside && toInside))) return null;
 
   const boundary = getBoundaryStation(passOption);
-  if (fromId === boundary || toId === boundary) {
-    return null;
-  }
+  if (fromId === boundary || toId === boundary) return null;
 
-  const interchanges = passInterchangeIds[passOption] || [];
-  const candidates = [boundary, ...interchanges];
   const outsideStation = fromInside ? toId : fromId;
+  const candidates = [boundary, ...(passInterchangeIds[passOption] || [])];
+  let cheapest = null;
 
-  const outsideName = currentLang === "en"
-    ? stations.find(st => st.id === outsideStation)?.en
-    : stations.find(st => st.id === outsideStation)?.zh;
-
-  console.log(`[calculateConnectionFare] Pass ${passOption}, outside station: ${outsideName} (${outsideStation})`);
-
-  console.log("[calculateConnectionFare] Candidates:");
-  candidates.forEach(c => {
-    const st = stations.find(s => s.id === c);
-    const name = currentLang === "en" ? st?.en : st?.zh;
-    console.log(`  - ${name} (${c})`);
-  });
-
-  let cheapest = Infinity;
-  let cheapestCandidate = null;
   for (const candidate of candidates) {
     const fare = lookupFare(candidate, outsideStation);
-    const st = stations.find(s => s.id === candidate);
-    const name = currentLang === "en" ? st?.en : st?.zh;
-    const candidateFare = candidate === fromId || candidate === toId
-      ? fare
-      : applyDiscount(fare);
+    if (fare <= 0) continue;
 
-    console.log(`  Candidate ${name} (${candidate}) → ${outsideName}, fare = ${fare}, effective fare = ${candidateFare}`);
-    if (fare > 0 && candidateFare < cheapest) {
-      cheapest = candidateFare;
-      cheapestCandidate = name;
-      console.log(`    New cheapest found: ${cheapest} (via ${name})`);
+    const discounted = candidate !== fromId && candidate !== toId;
+    const effectiveFare = discounted ? applyDiscount(fare) : fare;
+    if (!cheapest || effectiveFare < cheapest.fare) {
+      cheapest = {
+        fare: effectiveFare,
+        formula: discounted
+          ? `${formatFare(fare)} × 75% = ${formatFare(effectiveFare)} (${translations[currentLang].viaStation(getStationName(candidate))})`
+          : `${formatFare(fare)} (${translations[currentLang].fullFare})`
+      };
     }
   }
 
-  if (cheapest === Infinity) {
-    console.log("[calculateConnectionFare] No valid fare found.");
+  return cheapest;
+}
+
+function getStationName(stationId) {
+  const station = stations.find(item => item.id === stationId);
+  return currentLang === "en" ? station?.en || stationId : station?.zh || stationId;
+}
+
+function findStationRoutes(fromId, toId) {
+  const graph = new Map();
+  Object.keys(lineStations).forEach(line => {
+    getLinePaths(line).forEach(stationIds => {
+      for (let index = 1; index < stationIds.length; index += 1) {
+        const previous = stationIds[index - 1];
+        const current = stationIds[index];
+        if (!graph.has(previous)) graph.set(previous, []);
+        if (!graph.has(current)) graph.set(current, []);
+        graph.get(previous).push({ stationId: current, line });
+        graph.get(current).push({ stationId: previous, line });
+      }
+    });
+  });
+
+  function search(compareCosts) {
+    const queue = [{
+      stationId: fromId,
+      line: null,
+      stations: [fromId],
+      transfers: 0,
+      stops: 0
+    }];
+    const bestCosts = new Map();
+    while (queue.length) {
+      queue.sort((a, b) => compareCosts(a, b));
+      const current = queue.shift();
+      if (current.stationId === toId) return current.stations;
+
+      for (const edge of graph.get(current.stationId) || []) {
+        if (current.stations.includes(edge.stationId)) continue;
+        const next = {
+          stationId: edge.stationId,
+          line: edge.line,
+          stations: [...current.stations, edge.stationId],
+          transfers: current.transfers + (current.line && current.line !== edge.line ? 1 : 0),
+          stops: current.stops + 1
+        };
+        const stateKey = `${next.stationId}:${next.line}`;
+        const known = bestCosts.get(stateKey);
+        if (known && compareCosts(next, known) >= 0) continue;
+        bestCosts.set(stateKey, next);
+        queue.push(next);
+      }
+    }
     return null;
   }
 
-  console.log(`[calculateConnectionFare] Cheapest fare = ${cheapest} (via ${cheapestCandidate})`);
-  return cheapest;
+  return {
+    fewestInterchanges: search((a, b) =>
+      a.transfers - b.transfers || a.stops - b.stops
+    ),
+    fewestStations: search((a, b) =>
+      a.stops - b.stops || a.transfers - b.transfers
+    )
+  };
+}
+
+function findStationRoute(fromId, toId) {
+  return findStationRoutes(fromId, toId).fewestInterchanges;
 }
 
 function isOutsidePassCoverage(fromId, toId, passOption) {
@@ -576,7 +1150,6 @@ window.onload = async () => {
   populateLineDropdowns();
   updateStationDropdown("fromLine", "fromStation");
   updateStationDropdown("toLine", "toStation");
-  populatePasses();
 
   // Initialize default language AFTER dropdowns exist
   setLanguage(currentLang);
