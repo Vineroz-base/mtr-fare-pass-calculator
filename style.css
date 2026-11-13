@@ -10,31 +10,32 @@ body {
   min-height: 100vh;   /* full screen */
 }
 
-:root {
-  --design-height: 2532; /* pick a baseline portrait height (e.g. iPhone 12 Pro logical height) */
-}
-
 .portrait-container {
-  aspect-ratio: 9 / 19.5;
-  height: 100dvh;
+  width: 46.153846dvh;
+  min-height: 100dvh;
   max-width: 100%;
+  box-sizing: border-box;
+  padding: 2.5dvh 0;
   background-color: #121212;
   display: flex;
   justify-content: center;
   align-items: center;
   margin: auto;
-  transform-origin: top center;
-  /* dynamic scale: actual viewport height ÷ design height */
-  transform: scale(calc(100dvh / var(--design-height)));
 }
 
 .container {
   text-align: center;
   width: 95%;        /* relative to portrait box */
-  height: 95%;       /* relative to portrait box */
   display: flex;
   flex-direction: column;
   justify-content: center;
+}
+
+.app-footer {
+  margin-top: 2vh;
+  color: #aaa;
+  font-size: 0.8rem;
+  line-height: 1.4;
 }
 
 .section {
@@ -182,7 +183,6 @@ button:hover {
   color: #ccc;
 }
 
-/* Table wrapper ensures no page scroll */
 .table-wrapper {
   flex-grow: 1;
   margin-top: 2vh;
@@ -591,11 +591,10 @@ th {
 
 @media (orientation: landscape) {
   .portrait-container {
-    aspect-ratio: auto;
-    height: auto;
+    min-height: 0;
     width: 100%;
     max-width: 100%;
-    transform: none;        /* no scaling in landscape */
+    padding: 0;
   }
 
   .container {

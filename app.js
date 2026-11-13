@@ -14,6 +14,7 @@ const translations = {
   en: {
     appTitle: "MTR Monthly Pass Optimizer",
     appSubtitle: "Tap, ride, save—find your best fare today.",
+    appFooter: "Fares are for reference only.",
     fromLine: "From Line",
     fromStation: "From Station",
     toLine: "To Line",
@@ -70,6 +71,7 @@ const translations = {
   zh: {
     appTitle: "全月通・一按即慳",
     appSubtitle: "出閘再入閘，搵出至抵搭法",
+    appFooter: "票價資料只供參考。",
     fromLine: "起點路線",
     fromStation: "起點車站",
     toLine: "終點路線",
@@ -249,6 +251,7 @@ function setLanguage(lang) {
   document.documentElement.lang = lang;
   document.getElementById("appTitle").textContent = translations[lang].appTitle;
   document.getElementById("appSubtitle").textContent = translations[lang].appSubtitle;
+  document.getElementById("appFooter").textContent = translations[lang].appFooter;
   document.title = "全月通・一按即慳 | MTR Monthly Pass Optimizer";
   if (document.getElementById("resultTable").style.display !== "none") {
     calculateFare();
