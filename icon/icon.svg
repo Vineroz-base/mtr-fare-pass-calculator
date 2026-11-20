@@ -1,0 +1,207 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 512 512">
+
+  <!-- ==========================================
+       V7.9
+       - Rail segment: LOCKED
+       - Gates: translate(cx -25) scale(1.1)
+         Cabinet centres: 84 / 256 / 428
+       - Silver edge removed
+       - Glass glints subtler (opacity 0.4, smaller)
+       - Door frame stroke 6 (was 10), same outer
+         size and position
+       - Plinth darker grey (#5D6B7B)
+       Cabinet colours:
+         Raised back section : #335988
+         Front face          : #3B6494
+         Sunken lower front  : #2A4A70
+         Plinth (dark grey)  : #5D6B7B
+       ========================================== -->
+
+  <defs>
+    <clipPath id="iconClip">
+      <rect width="512" height="512" rx="88"/>
+    </clipPath>
+
+    <!-- Fade the map's top edge into the background -->
+    <linearGradient id="mapFade"
+                    gradientUnits="userSpaceOnUse"
+                    x1="0" y1="290" x2="0" y2="340">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="1"/>
+    </linearGradient>
+    <mask id="mapMask"
+          maskUnits="userSpaceOnUse"
+          x="0" y="0" width="512" height="512">
+      <rect width="512" height="512" fill="url(#mapFade)"/>
+    </mask>
+
+    <!-- ========================================
+         SWING DOOR
+         Outer extent unchanged: local -5..65 x -5..59
+         Frame stroke 6 (was 10): path pushed out by 3
+         so the outer edge stays in the same place.
+         ======================================== -->
+    <clipPath id="doorClip">
+      <rect x="-2" y="-2" width="64" height="58" rx="13"/>
+    </clipPath>
+
+    <g id="door">
+      <!-- Glass tint -->
+      <rect x="-2" y="-2" width="64" height="58" rx="13"
+            fill="#BFE3F5" fill-opacity="0.18"/>
+
+      <!-- Comic-style reflection: two short glints,
+           upper-left, low opacity -->
+      <g clip-path="url(#doorClip)"
+         stroke="#FFFFFF" stroke-opacity="0.4"
+         stroke-linecap="round">
+        <path d="M 12 28 L 23 14" stroke-width="5"/>
+        <path d="M 21 33 L 29 23" stroke-width="3"/>
+      </g>
+
+      <!-- Yellow frame (thinner) -->
+      <rect x="-2" y="-2" width="64" height="58" rx="13"
+            fill="none" stroke="#F5C518" stroke-width="6"
+            stroke-linejoin="round"/>
+    </g>
+
+    <!-- ========================================
+         CABINET BODY (shared)
+         Local: centred on x=0, width 54, y 50-278
+         ======================================== -->
+    <g id="cabinetBody">
+
+      <!-- Sunken lower front (slopes back, darker navy) -->
+      <path d="M -27 230 H 27 L 20 270 H -20 Z"
+            fill="#2A4A70"/>
+
+      <!-- Base plinth (dark grey) -->
+      <rect x="-23" y="268" width="46" height="10" rx="3"
+            fill="#5D6B7B"/>
+
+      <!-- Raised screen section (back, slightly darker) -->
+      <path d="
+        M -27 90
+        L -22 58
+        Q -20 50, -13 50
+        H 13
+        Q 20 50, 22 58
+        L 27 90
+        Z
+      "
+            fill="#335988"/>
+
+      <!-- Front face (navy) -->
+      <rect x="-27" y="84" width="54" height="154" rx="7"
+            fill="#3B6494"/>
+
+      <!-- Yellow band -->
+      <rect x="-27" y="120" width="54" height="9"
+            fill="#F5C518"/>
+    </g>
+
+    <!-- End panel: body only -->
+    <g id="endPanel">
+      <use href="#cabinetBody"/>
+    </g>
+
+    <!-- Working gate: body + screen + reader + arrow -->
+    <g id="gateUnit">
+      <use href="#cabinetBody"/>
+
+      <!-- Monitor (landscape, V7.3 size) -->
+      <rect x="-14.5" y="58" width="29" height="22" rx="4"
+            fill="#0F2238"/>
+      <rect x="-11" y="61.5" width="22" height="15" rx="2"
+            fill="#5EB6E4" opacity="0.6"/>
+
+      <!-- Card reader (generic dot) -->
+      <circle cx="0" cy="146" r="6" fill="#A9BDD3"/>
+
+      <!-- Arrow display -->
+      <rect x="-18" y="166" width="36" height="38" rx="6"
+            fill="#0F2238"/>
+
+      <!-- Green arrow, down-left -->
+      <path d="M 9 176 L -8 193 M -8 181 V 193 H 4"
+            fill="none" stroke="#3DDC6E" stroke-width="6"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </defs>
+
+  <g clip-path="url(#iconClip)">
+
+    <rect width="512" height="512" fill="#183454"/>
+
+    <!-- ========================================
+         MAP STRIP (LOCKED)
+         ======================================== -->
+    <g mask="url(#mapMask)">
+
+      <!-- OUT OF PASS (GREY) -->
+      <g fill="none" stroke="#4A5A70" stroke-width="28"
+         stroke-linejoin="round">
+        <!-- Tsuen Wan Line -->
+        <path d="M 110 260 V 540"/>
+        <!-- Tuen Ma Line beyond Hung Hom -->
+        <path d="M 380 363 L 540 203"/>
+        <!-- East Rail Line below Hung Hom -->
+        <path d="M 400 383 L 243 540"/>
+      </g>
+
+      <!-- COVERED (SOLID) -->
+      <!-- East Rail Line: southbound down to Hung Hom -->
+      <path d="M 540 243 L 400 383" fill="none"
+            stroke="#5EB6E4" stroke-width="28"/>
+
+      <!-- Tuen Ma Line: off left edge -> East TST ->
+           curve -> Hung Hom -->
+      <path d="M -20 462 H 240
+               C 266.3 462, 291.4 451.6, 310 433
+               L 380 363"
+            fill="none" stroke="#9B3F13" stroke-width="28"
+            stroke-linejoin="round"/>
+
+      <!-- EXIT / RE-ENTRY: walking link -->
+      <path d="M 110 352 L 220 462" fill="none"
+            stroke="#FFFFFF" stroke-width="10"
+            stroke-linecap="round" stroke-dasharray="1 19"/>
+
+      <!-- Tsim Sha Tsui -->
+      <circle cx="110" cy="352" r="16" fill="#FFFFFF"
+              stroke="#183454" stroke-width="7"/>
+      <!-- East Tsim Sha Tsui -->
+      <circle cx="220" cy="462" r="16" fill="#FFFFFF"
+              stroke="#183454" stroke-width="7"/>
+
+      <!-- Hung Hom -->
+      <rect x="-30" y="-16" width="60" height="32" rx="16"
+            transform="translate(390 373) rotate(45)"
+            fill="#FFFFFF" stroke="#183454" stroke-width="7"/>
+    </g>
+
+    <!-- ========================================
+         FARE GATES
+         ======================================== -->
+
+    <!-- Glass swing doors, closed (behind cabinets) -->
+    <!-- Aisle 1 -->
+    <use href="#door" transform="translate(106 140)"/>
+    <use href="#door" transform="translate(174 140)"/>
+    <!-- Aisle 2 -->
+    <use href="#door" transform="translate(278 140)"/>
+    <use href="#door" transform="translate(346 140)"/>
+
+    <!-- Left: end panel -->
+    <use href="#endPanel"
+         transform="translate(84 -25) scale(1.1)"/>
+    <!-- Middle: working gate -->
+    <use href="#gateUnit"
+         transform="translate(256 -25) scale(1.1)"/>
+    <!-- Right: working gate -->
+    <use href="#gateUnit"
+         transform="translate(428 -25) scale(1.1)"/>
+  </g>
+
+</svg>
