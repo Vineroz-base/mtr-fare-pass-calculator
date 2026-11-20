@@ -118,7 +118,7 @@ const translations = {
       "Disneyland Resort Line": "迪士尼綫"
     },
     passes: {
-      "Pass1": "東鐵綫 + 屯馬綫",
+      "Pass1": "東鐵 + 屯馬",
       "Pass2": "屯門 ↔ 南昌",
       "Pass3": "屯門 ↔ 紅磡",
       "Pass4": "東涌 ↔ 南昌",
