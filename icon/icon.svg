@@ -2,20 +2,21 @@
      viewBox="0 0 512 512">
 
   <!-- ==========================================
-       V7.9
-       - Rail segment: LOCKED
+       V7.10
+       - Rail segment geometry: LOCKED
        - Gates: translate(cx -25) scale(1.1)
          Cabinet centres: 84 / 256 / 428
-       - Silver edge removed
-       - Glass glints subtler (opacity 0.4, smaller)
-       - Door frame stroke 6 (was 10), same outer
-         size and position
-       - Plinth darker grey (#5D6B7B)
+       - Background back to off-white (#F7F7F3)
+       - Out-of-pass lines: original colours, faded
+         (group opacity 0.35) instead of grey
+       - Walking-link dots: navy (white vanishes)
+       - Glass: stronger tint so it reads on light bg
+       - Plinth lighter grey (#A9B3BE)
        Cabinet colours:
          Raised back section : #335988
          Front face          : #3B6494
          Sunken lower front  : #2A4A70
-         Plinth (dark grey)  : #5D6B7B
+         Plinth (light grey) : #A9B3BE
        ========================================== -->
 
   <defs>
@@ -38,9 +39,7 @@
 
     <!-- ========================================
          SWING DOOR
-         Outer extent unchanged: local -5..65 x -5..59
-         Frame stroke 6 (was 10): path pushed out by 3
-         so the outer edge stays in the same place.
+         Outer extent: local -5..65 x -5..59
          ======================================== -->
     <clipPath id="doorClip">
       <rect x="-2" y="-2" width="64" height="58" rx="13"/>
@@ -49,18 +48,18 @@
     <g id="door">
       <!-- Glass tint -->
       <rect x="-2" y="-2" width="64" height="58" rx="13"
-            fill="#BFE3F5" fill-opacity="0.18"/>
+            fill="#5EB6E4" fill-opacity="0.35"/>
 
       <!-- Comic-style reflection: two short glints,
-           upper-left, low opacity -->
+           upper-left -->
       <g clip-path="url(#doorClip)"
-         stroke="#FFFFFF" stroke-opacity="0.4"
+         stroke="#FFFFFF" stroke-opacity="0.7"
          stroke-linecap="round">
         <path d="M 12 28 L 23 14" stroke-width="5"/>
         <path d="M 21 33 L 29 23" stroke-width="3"/>
       </g>
 
-      <!-- Yellow frame (thinner) -->
+      <!-- Yellow frame -->
       <rect x="-2" y="-2" width="64" height="58" rx="13"
             fill="none" stroke="#F5C518" stroke-width="6"
             stroke-linejoin="round"/>
@@ -76,9 +75,9 @@
       <path d="M -27 230 H 27 L 20 270 H -20 Z"
             fill="#2A4A70"/>
 
-      <!-- Base plinth (dark grey) -->
+      <!-- Base plinth (light grey) -->
       <rect x="-23" y="268" width="46" height="10" rx="3"
-            fill="#5D6B7B"/>
+            fill="#A9B3BE"/>
 
       <!-- Raised screen section (back, slightly darker) -->
       <path d="
@@ -132,22 +131,23 @@
 
   <g clip-path="url(#iconClip)">
 
-    <rect width="512" height="512" fill="#183454"/>
+    <rect width="512" height="512" fill="#F7F7F3"/>
 
     <!-- ========================================
-         MAP STRIP (LOCKED)
+         MAP STRIP (geometry LOCKED)
          ======================================== -->
     <g mask="url(#mapMask)">
 
-      <!-- OUT OF PASS (GREY) -->
-      <g fill="none" stroke="#4A5A70" stroke-width="28"
+      <!-- OUT OF PASS (FADED)
+           Group opacity, so overlaps don't darken -->
+      <g opacity="0.35" fill="none" stroke-width="28"
          stroke-linejoin="round">
         <!-- Tsuen Wan Line -->
-        <path d="M 110 260 V 540"/>
+        <path d="M 110 260 V 540" stroke="#E5242A"/>
         <!-- Tuen Ma Line beyond Hung Hom -->
-        <path d="M 380 363 L 540 203"/>
+        <path d="M 380 363 L 540 203" stroke="#9B3F13"/>
         <!-- East Rail Line below Hung Hom -->
-        <path d="M 400 383 L 243 540"/>
+        <path d="M 400 383 L 243 540" stroke="#5EB6E4"/>
       </g>
 
       <!-- COVERED (SOLID) -->
@@ -163,9 +163,9 @@
             fill="none" stroke="#9B3F13" stroke-width="28"
             stroke-linejoin="round"/>
 
-      <!-- EXIT / RE-ENTRY: walking link -->
+      <!-- EXIT / RE-ENTRY: walking link (navy) -->
       <path d="M 110 352 L 220 462" fill="none"
-            stroke="#FFFFFF" stroke-width="10"
+            stroke="#183454" stroke-width="10"
             stroke-linecap="round" stroke-dasharray="1 19"/>
 
       <!-- Tsim Sha Tsui -->
