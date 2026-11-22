@@ -1,5 +1,7 @@
 # MTR Fare‑Pass Calculator
 
+English | [繁體中文（香港）](README.zh-HK.md)
+
 A simple, browser‑based tool that helps Hong Kong commuters understand how the **MTR Monthly Pass Extra (全月通)** affects their journey fares.
 
 ---
