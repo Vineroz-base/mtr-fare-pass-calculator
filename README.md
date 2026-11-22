@@ -1,5 +1,7 @@
 # MTR Fare‑Pass Calculator
 
+English | [繁體中文（香港）](README.zh-HK.md)
+
 A simple, browser‑based tool that helps Hong Kong commuters understand how the **MTR Monthly Pass Extra (全月通)** affects their journey fares.
 
 ---
@@ -49,8 +51,8 @@ Monthly‑pass coverage and discount rules are implemented in JavaScript.
 
 1. Open `index.html` in your browser or visit the GitHub Pages site.
 2. Choose departure and arrival stations.
-3. Calculate to compare the standard fare with all pass options.
-4. Read the results in the three‑row table.
+3. Use the color-coded toggles to choose which of the five Monthly Passes to compare – you don't pick a single pass type. Results update in real time.
+4. Read the results: one row per selected pass, one column per no-exit/re-entry option. On mobile, expand each pass card to see its fares.
 
 ---
 
@@ -74,7 +76,6 @@ Monthly‑pass coverage and discount rules are implemented in JavaScript.
 
 - Support Light Rail / bus transfers.
 - Display monthly savings based on a user’s trip frequency.
-- Allow multi‑pass comparison.
 - Make the station list searchable/autocomplete.
 
 ---
