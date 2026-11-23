@@ -18,12 +18,13 @@ It applies all of the pass rules:
 
 - unlimited travel within the pass zone,
 - 25 % discount outside the zone,
-- compares the no-exit fare with same-station exit/re-entry options at pass-covered stations along the route,
+- compares the no-exit fare with same-station exit/re-entry options at pass-covered stations along the route, and at Sheung Shui for border journeys,
 - shows only pass and exit/re-entry results that beat the standard fare, with savings beside each fare,
 - reveals each re-entry option's discounted-leg calculation on hover, focus, or click,
 - displays the route with the fewest interchanges by default, with the fewest-stations route available as a secondary choice, when a fare-result column header is selected,
 - models East Rail Line branches at Sheung Shui and the Tseung Kwan O Line branch at Tseung Kwan O when finding routes,
-- excludes certain lines/stations (Airport Express, Lo Wu, Lok Ma Chau, Racecourse, First‑Class),
+- charges the full fare for each journey leg to or from Lo Wu or Lok Ma Chau, with pass benefits available on a separate re-entry leg,
+- excludes certain lines/stations (Airport Express, Racecourse, First‑Class) from pass benefits,
 - and uses the official fare table from DATA.GOV.HK.
 
 ---
