@@ -27,7 +27,9 @@ const translations = {
     saving: amount => `save $${amount.toFixed(1)}`,
     passDiscountAxis: "Pass discounts",
     reentryDiscountAxis: "Re-entry discounts",
-    noReentry: "No re-entry",
+    noReentry: "No extra re-entry",
+    tstRoute: "Via TST / East TST",
+    otherRoute: "Without TST / East TST interchange",
     fewestInterchanges: "Fewest interchanges",
     fewestStations: "Fewest stations",
     interchangeCount: count => `${count} ${count === 1 ? "interchange" : "interchanges"}`,
@@ -48,6 +50,10 @@ const translations = {
     routeFor: label => `Route: ${label}`,
     interchange: "Interchange",
     walkingConnection: "Walk between stations",
+    tstConnection: "Exit and walk to the other station (within 30 minutes)",
+    tstBreakdown: (first, adjustment, total) =>
+      `TST / East TST interchange within 30 minutes\nFirst exit: ${formatFare(first)}\nFinal exit adjustment: ${formatFare(adjustment)}\nTotal: ${formatFare(total)}`,
+    tstBreakdownUnavailable: "TST / East TST interchange within 30 minutes; gate calculation unavailable because a fare is missing.",
     exitReenter: "Exit and re-enter",
     stationCount: count => `${count} ${count === 1 ? "stop" : "stops"}`,
     lines: {
@@ -85,7 +91,9 @@ const translations = {
     saving: amount => `省 $${amount.toFixed(1)}`,
     passDiscountAxis: "全月通折扣",
     reentryDiscountAxis: "出閘再入閘折扣",
-    noReentry: "不出閘",
+    noReentry: "不額外出閘",
+    tstRoute: "經尖沙咀／尖東轉乘",
+    otherRoute: "不經尖沙咀／尖東轉乘",
     fewestInterchanges: "最少轉車",
     fewestStations: "最少車站",
     interchangeCount: count => `${count}次轉車`,
@@ -106,6 +114,10 @@ const translations = {
     routeFor: label => `路線：${label}`,
     interchange: "轉車",
     walkingConnection: "步行轉乘",
+    tstConnection: "出閘步行至另一車站（30分鐘內）",
+    tstBreakdown: (first, adjustment, total) =>
+      `尖沙咀／尖東站30分鐘內轉乘\n首次出閘：${formatFare(first)}\n終點出閘補扣／退回：${formatFare(adjustment)}\n合共：${formatFare(total)}`,
+    tstBreakdownUnavailable: "尖沙咀／尖東站30分鐘內轉乘；因缺少車費資料，未能計算出閘扣款。",
     exitReenter: "出閘／入閘",
     stationCount: count => `${count}站`,
     lines: {
@@ -157,7 +169,26 @@ const borderStationIds = ["76", "78"];
 const sheungShuiId = "75";
 const centralId = "1";
 const hongKongId = "39";
+const tsimShaTsuiId = "3";
+const eastTsimShaTsuiId = "80";
 const walkingConnection = "Walking connection";
+const tstConnection = "TST out-of-gate interchange";
+
+function isTstConnection(fromId, toId) {
+  return (fromId === tsimShaTsuiId && toId === eastTsimShaTsuiId) ||
+    (fromId === eastTsimShaTsuiId && toId === tsimShaTsuiId);
+}
+
+function isWalkingConnection(line) {
+  return line === walkingConnection || line === tstConnection;
+}
+
+function getTstTransferIndex(route) {
+  if (!route) return -1;
+  return route.findIndex((stationId, index) =>
+    index > 0 && index < route.length - 2 && isTstConnection(stationId, route[index + 1])
+  );
+}
 
 function isSameStation(fromId, toId) {
   return fromId === toId ||
@@ -432,7 +463,10 @@ function calculateFare() {
   if (fare !== null) {
     const originalFare = fare;
 
-    renderFareResults(originalFare, getPassScenarios(fromId, toId, originalFare));
+    const routes = findStationRoutes(fromId, toId);
+    const standardInterchange = calculateTstInterchange(null, fromId, toId, routes.fewestInterchanges) ||
+      calculateTstInterchange(null, fromId, toId, routes.fewestStations);
+    renderFareResults(originalFare, getPassScenarios(fromId, toId, originalFare, routes), standardInterchange);
     document.getElementById("resultTable").style.display = "table";
   } else {
     console.warn("[calculateFare] No fare found for stations:", { fromId, toId });
@@ -441,7 +475,7 @@ function calculateFare() {
   }
 }
 
-function renderFareResults(originalFare, results) {
+function renderFareResults(originalFare, results, standardInterchange = null) {
   const table = document.getElementById("resultTable");
   const thead = table.tHead;
   const tbody = table.tBodies[0];
@@ -450,7 +484,7 @@ function renderFareResults(originalFare, results) {
 
   const columns = groupReentryColumns(results);
   const passGroups = groupPassResults(results);
-  renderMobileFareResults(originalFare, results, columns);
+  renderMobileFareResults(originalFare, results, columns, standardInterchange);
   const topHeader = document.createElement("tr");
   const passAxis = document.createElement("th");
   passAxis.scope = "col";
@@ -481,7 +515,7 @@ function renderFareResults(originalFare, results) {
       }
       header.append(label);
     };
-    if (column.options.length > 1 && column.optionIds.every(id => id !== "noExit")) {
+    if (column.options.length > 1 && column.optionIds.every(isReentryOptionId)) {
       const group = document.createElement("details");
       group.className = "matrix-reentry-group";
       const summary = document.createElement("summary");
@@ -513,6 +547,9 @@ function renderFareResults(originalFare, results) {
   const standardCell = document.createElement("td");
   standardCell.colSpan = columns.length;
   standardCell.textContent = formatFare(originalFare);
+  if (standardInterchange) {
+    standardCell.append(createFareBreakdown(standardInterchange.breakdown));
+  }
   standardRow.append(standardCell);
   tbody.append(standardRow);
 
@@ -589,7 +626,7 @@ function renderFareResults(originalFare, results) {
   closeRouteDiagram();
 }
 
-function renderMobileFareResults(originalFare, results, columns) {
+function renderMobileFareResults(originalFare, results, columns, standardInterchange = null) {
   const container = document.getElementById("mobileFareResults");
   container.replaceChildren();
 
@@ -600,6 +637,9 @@ function renderMobileFareResults(originalFare, results, columns) {
   const standardValue = document.createElement("strong");
   standardValue.textContent = formatFare(originalFare);
   standardFare.append(standardLabel, standardValue);
+  if (standardInterchange) {
+    standardFare.append(createFareBreakdown(standardInterchange.breakdown));
+  }
   container.append(standardFare);
 
   if (!results.length) {
@@ -830,14 +870,16 @@ function renderRouteDiagram(route) {
       track.setAttribute("aria-hidden", "true");
       const stationCount = document.createElement("span");
       stationCount.className = "route-segment-count";
-      stationCount.textContent = route.segments[index].line === walkingConnection
+      stationCount.textContent = isWalkingConnection(route.segments[index].line)
         ? ""
         : translations[currentLang].stationCount(route.segments[index].stationCount);
       const lineName = document.createElement("span");
       lineName.className = "route-segment-name";
-      lineName.textContent = route.segments[index].line === walkingConnection
-        ? translations[currentLang].walkingConnection
-        : translations[currentLang].lines[route.segments[index].line] || route.segments[index].line;
+      lineName.textContent = route.segments[index].line === tstConnection
+        ? translations[currentLang].tstConnection
+        : route.segments[index].line === walkingConnection
+          ? translations[currentLang].walkingConnection
+          : translations[currentLang].lines[route.segments[index].line] || route.segments[index].line;
       segment.append(stationCount, track, lineName);
       diagram.append(segment);
     }
@@ -912,26 +954,48 @@ function formatFare(fare) {
     : `$${fare.toFixed(1)}`;
 }
 
-function getPassScenarios(fromId, toId, originalFare) {
-  const routes = findStationRoutes(fromId, toId);
+function getPassScenarios(fromId, toId, originalFare, routes = findStationRoutes(fromId, toId)) {
+  const firstUsesTst = getTstTransferIndex(routes.fewestInterchanges) >= 0;
+  const secondUsesTst = getTstTransferIndex(routes.fewestStations) >= 0;
+  const hasDifferentTransfer = routes.fewestInterchanges && routes.fewestStations &&
+    firstUsesTst !== secondUsesTst;
+  const primaryRoutes = {
+    ...routes,
+    fewestStations: hasDifferentTransfer ? null : routes.fewestStations
+  };
   return Object.keys(passCoverageIds)
     .filter(passKey => selectedPasses.has(passKey))
     .map(passKey => {
-    const covered = isCoveredByPass(fromId, toId, passKey);
-    const connection = covered
-      ? null
-      : findCheapestConnectionCalculation(passKey, fromId, toId);
-    const passFare = covered ? 0 : connection?.fare ?? originalFare;
     const results = {};
-    if (passFare < originalFare) {
-      results.noExit = {
-        label: translations[currentLang].noReentry,
+    function addRouteResult(id, label, route, routeOptions) {
+      const tstTransfer = getTstTransferIndex(route) >= 0;
+      const covered = isCoveredByPass(fromId, toId, passKey);
+      const connection = covered
+        ? null
+        : findCheapestConnectionCalculation(passKey, fromId, toId, tstTransfer);
+      const passFare = covered ? 0 : connection?.fare ?? originalFare;
+      const interchange = tstTransfer
+        ? calculateTstInterchange(passKey, fromId, toId, route)
+        : null;
+      if (passFare >= originalFare) return;
+      results[id] = {
+        label,
         fare: passFare,
-        breakdown: covered
-          ? translations[currentLang].passCovered(passFare)
-          : connection?.formula,
-        routes: createRouteOptions(routes, null)
+        breakdown: [
+          covered ? translations[currentLang].passCovered(passFare) : connection?.formula,
+          interchange?.breakdown
+        ].filter(Boolean).join("\n"),
+        routes: routeOptions
       };
+    }
+    const primaryOptions = createRouteOptions(primaryRoutes, null);
+    addRouteResult("noExit", translations[currentLang].noReentry, routes.fewestInterchanges, primaryOptions);
+    if (hasDifferentTransfer) {
+      const id = secondUsesTst ? "tstTransfer" : "otherRoute";
+      const label = secondUsesTst ? translations[currentLang].tstRoute : translations[currentLang].otherRoute;
+      addRouteResult(id, label, routes.fewestStations, [
+        createRouteInfo(routes.fewestStations, null, "fewestStations")
+      ]);
     }
 
     getReentryScenarios(fromId, toId, passKey, routes).forEach(result => {
@@ -940,8 +1004,12 @@ function getPassScenarios(fromId, toId, originalFare) {
         label: result.label
       };
     });
-    return { passKey, results, routes: createRouteOptions(routes, null) };
+    return { passKey, results, routes: primaryOptions };
     });
+}
+
+function isReentryOptionId(id) {
+  return id !== "noExit" && id !== "tstTransfer" && id !== "otherRoute";
 }
 
 function groupPassResults(passResults) {
@@ -992,7 +1060,7 @@ function groupReentryColumns(passResults) {
     const signature = JSON.stringify(passGroups.map(group =>
       group.entries[0].results[option.id]?.fare ?? null
     ));
-    const key = option.id === "noExit" ? `noExit:${signature}` : `reentry:${signature}`;
+    const key = isReentryOptionId(option.id) ? `reentry:${signature}` : option.id;
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key).push(option);
   });
@@ -1020,22 +1088,32 @@ function getReentryScenarios(fromId, toId, passOption, routes = findStationRoute
     .filter((stationId, index) =>
       !isSameStation(stationId, fromId) &&
       !isSameStation(stationId, toId) &&
-      candidateRoutes.some(option => option.route.includes(stationId)) &&
       candidates.indexOf(stationId) === index
     )
     .map(stationId => {
+      const stationOptions = candidateRoutes.filter(option => {
+        const index = option.route.indexOf(stationId);
+        return index > 0 && index < option.route.length - 1 &&
+          !isTstConnection(option.route[index - 1], stationId) &&
+          !isTstConnection(stationId, option.route[index + 1]);
+      });
+      if (!stationOptions.length) return null;
+      const route = stationOptions[0].route;
+      const stationIndex = route.indexOf(stationId);
+      const firstRoute = route.slice(0, stationIndex + 1);
+      const secondRoute = route.slice(stationIndex);
       const firstLeg = borderJourney
-        ? calculateBorderReentryLeg(passOption, fromId, stationId)
-        : calculateReentryLegFare(passOption, fromId, stationId);
+        ? calculateBorderReentryLeg(passOption, fromId, stationId, firstRoute)
+        : calculateReentryLegFare(passOption, fromId, stationId, firstRoute);
       const secondLeg = borderJourney
-        ? calculateBorderReentryLeg(passOption, stationId, toId)
-        : calculateReentryLegFare(passOption, stationId, toId);
+        ? calculateBorderReentryLeg(passOption, stationId, toId, secondRoute)
+        : calculateReentryLegFare(passOption, stationId, toId, secondRoute);
       if (!firstLeg || !secondLeg) return null;
       if (borderJourney) {
         if (!firstLeg.usesPass && !secondLeg.usesPass) return null;
       } else if (firstLeg.fare <= 0 || secondLeg.fare <= 0) return null;
 
-      const fare = firstLeg.fare + secondLeg.fare;
+      const fare = (Math.round(firstLeg.fare * 10) + Math.round(secondLeg.fare * 10)) / 10;
       const originalFare = lookupFare(fromId, toId);
       if (originalFare === null || fare >= originalFare) return null;
 
@@ -1043,8 +1121,14 @@ function getReentryScenarios(fromId, toId, passOption, routes = findStationRoute
       const name = currentLang === "en" ? station?.en : station?.zh;
       const originName = getStationName(fromId);
       const destinationName = getStationName(toId);
-      const stationRoutes = candidateRoutes
-        .filter(option => option.route.includes(stationId))
+      const stationRoutes = stationOptions
+        .filter(option => {
+          const index = option.route.indexOf(stationId);
+          return (getTstTransferIndex(option.route.slice(0, index + 1)) >= 0) ===
+              (getTstTransferIndex(firstRoute) >= 0) &&
+            (getTstTransferIndex(option.route.slice(index)) >= 0) ===
+              (getTstTransferIndex(secondRoute) >= 0);
+        })
         .map(option => createRouteInfo(option.route, stationId, option.type))
         .filter(Boolean);
       return {
@@ -1101,7 +1185,7 @@ function createRouteInfo(route, reentryStation, type) {
   }
 
   const indexes = [...landmarkIndexes].sort((a, b) => a - b);
-  const trainLines = edgeLines.filter(line => line !== walkingConnection);
+  const trainLines = edgeLines.filter(line => !isWalkingConnection(line));
   const transferCount = trainLines.slice(1).reduce((count, line, index) =>
     count + (line === trainLines[index] ? 0 : 1), 0);
   const stationCount = trainLines.length;
@@ -1128,12 +1212,13 @@ function createRouteInfo(route, reentryStation, type) {
     segments: indexes.slice(0, -1).map((startIndex, index) => ({
       line: edgeLines[startIndex],
       stationCount: edgeLines.slice(startIndex, indexes[index + 1])
-        .filter(line => line !== walkingConnection).length
+        .filter(line => !isWalkingConnection(line)).length
     }))
   };
 }
 
 function getLineForSegment(fromId, toId) {
+  if (isTstConnection(fromId, toId)) return tstConnection;
   if (fromId !== toId && isSameStation(fromId, toId)) return walkingConnection;
   return Object.entries(lineStations).find(([line]) =>
     getLinePaths(line).some(stationIds => {
@@ -1148,37 +1233,75 @@ function involvesBorderStation(fromId, toId) {
   return borderStationIds.includes(fromId) || borderStationIds.includes(toId);
 }
 
-function calculateBorderReentryLeg(passOption, fromId, toId) {
+function calculateJourneyFare(passOption, fromId, toId, tstTransfer = false) {
+  const fullFare = lookupFare(fromId, toId);
+  if (fullFare === null) return null;
+  if (!passOption) return fullFare;
+  if (isCoveredByPass(fromId, toId, passOption)) return 0;
+  const connection = findCheapestConnectionCalculation(passOption, fromId, toId, tstTransfer);
+  return connection ? Math.min(fullFare, connection.fare) : fullFare;
+}
+
+function calculateTstInterchange(passOption, fromId, toId, route) {
+  const index = getTstTransferIndex(route);
+  if (index < 0) return null;
+  const total = calculateJourneyFare(passOption, fromId, toId, true);
+  const first = calculateJourneyFare(passOption, fromId, route[index]);
+  if (total === null || first === null) {
+    return { breakdown: translations[currentLang].tstBreakdownUnavailable };
+  }
+  const adjustment = (Math.round(total * 10) - Math.round(first * 10)) / 10;
+  return {
+    first,
+    adjustment,
+    total,
+    breakdown: translations[currentLang].tstBreakdown(first, adjustment, total)
+  };
+}
+
+function calculateBorderReentryLeg(passOption, fromId, toId, route = null) {
   const fullFare = lookupFare(fromId, toId);
   if (fullFare === null || fullFare <= 0) return null;
 
+  let result = null;
   if (!involvesBorderStation(fromId, toId)) {
     if (isCoveredByPass(fromId, toId, passOption)) {
-      return { fare: 0, formula: translations[currentLang].passCovered(0), usesPass: true };
-    }
-    const connection = findCheapestConnectionCalculation(passOption, fromId, toId);
-    if (connection && connection.fare < fullFare) {
-      return { ...connection, usesPass: true };
+      result = { fare: 0, formula: translations[currentLang].passCovered(0), usesPass: true };
+    } else {
+      const connection = findCheapestConnectionCalculation(passOption, fromId, toId, getTstTransferIndex(route) >= 0);
+      if (connection && connection.fare < fullFare) {
+        result = { ...connection, usesPass: true };
+      }
     }
   }
 
-  return {
+  if (!result) result = {
     fare: fullFare,
     formula: `${formatFare(fullFare)} (${translations[currentLang].fullFare})`,
     usesPass: false
   };
+  if (getTstTransferIndex(route) >= 0) {
+    result.formula += `\n${calculateTstInterchange(passOption, fromId, toId, route).breakdown}`;
+  }
+  return result;
 }
 
-function calculateReentryLegFare(passOption, fromId, toId) {
+function calculateReentryLegFare(passOption, fromId, toId, route = null) {
   const fare = lookupFare(fromId, toId);
   if (fare === null) return null;
-  const connection = findCheapestConnectionCalculation(passOption, fromId, toId);
-  return connection && connection.fare < fare
+  const tstTransfer = getTstTransferIndex(route) >= 0;
+  const connection = findCheapestConnectionCalculation(passOption, fromId, toId, tstTransfer);
+  const result = connection && connection.fare < fare
     ? connection
     : { fare, formula: `${formatFare(fare)} (${translations[currentLang].fullFare})` };
+  if (tstTransfer) {
+    const interchange = calculateTstInterchange(passOption, fromId, toId, route);
+    result.formula += `\n${interchange.breakdown}`;
+  }
+  return result;
 }
 
-function findCheapestConnectionCalculation(passOption, fromId, toId) {
+function findCheapestConnectionCalculation(passOption, fromId, toId, tstTransfer = false) {
   if (involvesBorderStation(fromId, toId)) return null;
   const coverage = passCoverageIds[passOption];
   if (!coverage) return null;
@@ -1196,7 +1319,8 @@ function findCheapestConnectionCalculation(passOption, fromId, toId) {
     const fare = lookupFare(candidate, outsideStation);
     if (fare === null || fare <= 0) continue;
 
-    const discounted = !isSameStation(candidate, fromId) && !isSameStation(candidate, toId);
+    const discounted = tstTransfer ||
+      (!isSameStation(candidate, fromId) && !isSameStation(candidate, toId));
     const effectiveFare = discounted ? applyDiscount(fare) : fare;
     if (!cheapest || effectiveFare < cheapest.fare) {
       cheapest = {
@@ -1232,6 +1356,8 @@ function findStationRoutes(fromId, toId) {
   });
   graph.get(centralId).push({ stationId: hongKongId, line: walkingConnection });
   graph.get(hongKongId).push({ stationId: centralId, line: walkingConnection });
+  graph.get(tsimShaTsuiId).push({ stationId: eastTsimShaTsuiId, line: tstConnection });
+  graph.get(eastTsimShaTsuiId).push({ stationId: tsimShaTsuiId, line: tstConnection });
 
   function search(compareCosts) {
     const queue = [{
@@ -1249,7 +1375,9 @@ function findStationRoutes(fromId, toId) {
 
       for (const edge of graph.get(current.stationId) || []) {
         if (current.stations.includes(edge.stationId)) continue;
-        const walking = edge.line === walkingConnection;
+        if (edge.line === tstConnection &&
+            (current.stations.length === 1 || edge.stationId === toId)) continue;
+        const walking = isWalkingConnection(edge.line);
         const next = {
           stationId: edge.stationId,
           line: walking ? current.line : edge.line,

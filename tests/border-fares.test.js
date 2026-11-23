@@ -184,3 +184,133 @@ test("zero fares are displayed while missing fares remain unavailable", () => {
   run(`delete fareTable["1-39"]; calculateFare()`);
   assert.equal(run("displayedFare"), null);
 });
+
+test("TST interchange reconciles normal fares and permits refunds", () => {
+  const run = createApp();
+  run(`
+    fareTable["111-80"] = 4.9;
+    fareTable["111-4"] = 4.9;
+    fareTable["4-3"] = 4.9;
+  `);
+  const forward = run(`calculateTstInterchange(null, "111", "4", ["111", "80", "3", "4"])`);
+  assert.equal(forward.first, 4.9);
+  assert.equal(forward.adjustment, 0);
+  assert.equal(forward.total, 4.9);
+  const reverse = run(`calculateTstInterchange(null, "4", "111", ["4", "3", "80", "111"])`);
+  assert.equal(reverse.first, 4.9);
+  assert.equal(reverse.adjustment, 0);
+  run(`fareTable["4-3"] = 7`);
+  assert.equal(run(`calculateTstInterchange(null, "4", "111", ["4", "3", "80", "111"]).adjustment`), -2.1);
+});
+
+test("Nam Cheong passes reconcile connecting fares in both directions", () => {
+  const run = createApp();
+  run(`
+    Object.assign(fareTable, {
+      "43-80": 14, "120-80": 14, "53-80": 8, "21-80": 12, "20-80": 12,
+      "43-4": 15, "120-4": 15, "53-4": 10, "21-4": 12, "20-4": 12,
+      "4-3": 9
+    });
+  `);
+  for (const [pass, covered] of [["Pass2", "120"], ["Pass4", "43"]]) {
+    const forward = run(`calculateTstInterchange("${pass}", "${covered}", "4", ["${covered}", "53", "111", "80", "3", "4"])`);
+    assert.equal(forward.first, 6);
+    assert.equal(forward.adjustment, 1.5);
+    assert.equal(forward.total, 7.5);
+    const reverse = run(`calculateTstInterchange("${pass}", "4", "${covered}", ["4", "3", "80", "111", "53", "${covered}"])`);
+    assert.equal(reverse.first, 9);
+    assert.equal(reverse.adjustment, -1.5);
+    assert.equal(reverse.total, 7.5);
+  }
+});
+
+test("a pass covering East TST has a free first leg and refunds in reverse", () => {
+  const run = createApp();
+  run(`
+    Object.assign(fareTable, {
+      "111-80": 4.9, "111-4": 12, "4-3": 9,
+      "64-4": 12, "53-4": 10, "20-4": 12
+    });
+  `);
+  const forward = run(`calculateTstInterchange("Pass3", "111", "4", ["111", "80", "3", "4"])`);
+  assert.equal(forward.first, 0);
+  assert.equal(forward.adjustment, 7.5);
+  assert.equal(forward.total, 7.5);
+  const reverse = run(`calculateTstInterchange("Pass3", "4", "111", ["4", "3", "80", "111"])`);
+  assert.equal(reverse.first, 9);
+  assert.equal(reverse.adjustment, -1.5);
+  assert.equal(reverse.total, 7.5);
+});
+
+test("qualifying TST transfer enables the boundary exception and respects the fare cap", () => {
+  const run = createApp();
+  run(`
+    Object.assign(fareTable, { "53-80": 8, "21-80": 12, "53-4": 10, "21-4": 12, "4-3": 9 });
+  `);
+  for (const [from, to] of [["53", "4"], ["4", "53"]]) {
+    assert.equal(run(`findCheapestConnectionCalculation("Pass4", "${from}", "${to}").fare`), 9);
+    assert.equal(run(`findCheapestConnectionCalculation("Pass4", "${from}", "${to}", true).fare`), 7.5);
+  }
+  const result = run(`calculateTstInterchange("Pass4", "4", "53", ["4", "3", "80", "111", "53"])`);
+  assert.equal(result.first, 9);
+  assert.equal(result.adjustment, -1.5);
+  assert.equal(result.total, 7.5);
+  run(`fareTable["53-4"] = 4`);
+  assert.equal(run(`calculateTstInterchange("Pass4", "4", "53", ["4", "3", "80", "111", "53"]).total`), 3);
+  run(`fareTable["43-4"] = 2`);
+  assert.equal(run(`calculateTstInterchange("Pass4", "4", "43", ["4", "3", "80", "111", "53", "43"]).total`), 2);
+});
+
+test("TST route alternatives have independent pass fares and breakdowns", () => {
+  const run = createApp();
+  run(`
+    Object.assign(fareTable, { "53-27": 10, "21-27": 12, "53-80": 8, "21-80": 12 });
+    const routeAlternatives = findStationRoutes("53", "27");
+  `);
+  const result = run(`getPassScenarios("53", "27", 10, routeAlternatives)
+    .find(entry => entry.passKey === "Pass4")`);
+  assert.equal(result.results.noExit.fare, 9);
+  assert.equal(result.results.tstTransfer.fare, 7.5);
+  assert.match(result.results.tstTransfer.breakdown, /First exit: \$8\.0/);
+  assert.equal(result.results.tstTransfer.routes[0].segments.some(segment => segment.line === "TST out-of-gate interchange"), true);
+  const columns = run(`groupReentryColumns(getPassScenarios("53", "27", 10, routeAlternatives))`);
+  assert.ok(columns.some(column => column.optionIds.length === 1 && column.optionIds[0] === "tstTransfer"));
+});
+
+test("TST walking connection is an out-of-gate transfer, not a station or same-station re-entry", () => {
+  const run = createApp();
+  for (const [from, to] of [["111", "4"], ["4", "111"]]) {
+    const route = run(`createRouteInfo(findStationRoutes("${from}", "${to}").fewestStations, null, "fewestStations")`);
+    assert.equal(route.stationCount, 2);
+    assert.equal(route.transferCount, 1);
+    assert.deepEqual(Array.from(route.stations, station => station.id), [from, from === "111" ? "80" : "3", from === "111" ? "3" : "80", to]);
+    assert.equal(route.segments[1].line, "TST out-of-gate interchange");
+    assert.equal(route.segments[1].stationCount, 0);
+  }
+  assert.equal(run(`getTstTransferIndex(findStationRoutes("3", "111").fewestStations)`), -1);
+  assert.equal(run(`isSameStation("3", "80")`), false);
+});
+
+test("a missing first-sector fare is reported rather than inventing a gate adjustment", () => {
+  const run = createApp();
+  run(`fareTable["111-4"] = 4.9`);
+  const result = run(`calculateTstInterchange(null, "111", "4", ["111", "80", "3", "4"])`);
+  assert.equal(result.adjustment, undefined);
+  assert.match(result.breakdown, /unavailable/);
+});
+
+test("a separate re-entry leg retains the TST transfer adjustment", () => {
+  const run = createApp();
+  run(`
+    Object.assign(fareTable, {
+      "4-53": 10, "4-21": 12, "4-3": 9,
+      "53-120": 20, "21-120": 12, "4-120": 30
+    });
+    const route = ["4", "3", "80", "111", "53", "20", "114", "115", "116", "117", "118", "119", "120"];
+  `);
+  const result = run(`getReentryScenarios("4", "120", "Pass4",
+    { fewestInterchanges: route, fewestStations: route }).find(entry => entry.stationId === "53")`);
+  assert.equal(result.fare, 16.5);
+  assert.match(result.breakdown, /Final exit adjustment: -\$1\.5/);
+  assert.match(result.breakdown, /\$12\.0 × 75% = \$9\.0/);
+});
