@@ -33,6 +33,52 @@ function createApp() {
   return expression => vm.runInContext(expression, context);
 }
 
+test("re-entry breakdowns group matching calculations and retain distinct ones", () => {
+  const run = createApp();
+  run(`
+    const firstLeg = "$4.9 × 75% = $3.7 (via Diamond Hill)";
+    const secondLeg = "$22.2 × 75% = $16.6 (via East Tsim Sha Tsui)";
+    const reentries = ["Hung Hom", "East Tsim Sha Tsui", "Ho Man Tin", "Kai Tak", "Sung Wong Toi", "To Kwa Wan"]
+      .map(stationName => {
+        const secondLegFormula = stationName === "East Tsim Sha Tsui"
+          ? "$22.2 × 75% = $16.6 (via Diamond Hill)" : secondLeg;
+        const breakdownDetails = {
+          stationName, originName: "Kowloon Bay", destinationName: "Disneyland Resort",
+          firstLegFormula: firstLeg, secondLegFormula, fare: 20.3
+        };
+        return {
+          breakdownDetails,
+          breakdown: \`Kowloon Bay → \${stationName}: \${firstLeg}\\n\${stationName} → Disneyland Resort: \${secondLegFormula}\\nTotal: $20.3\`
+        };
+      });
+  `);
+  const text = run("createFareBreakdownText([...reentries, reentries[0]], true)");
+  const sections = text.split("\n\n");
+  assert.equal(sections.length, 2);
+  assert.match(sections[0], /^Same fare at: Hung Hom, Ho Man Tin, Kai Tak, Sung Wong Toi, To Kwa Wan\n/);
+  assert.match(sections[0], /Each station → Disneyland Resort: \$22\.2 × 75% = \$16\.6 \(via East Tsim Sha Tsui\)/);
+  assert.equal(sections[1], run("reentries[1].breakdown"));
+  assert.equal(run("createFareBreakdownText(reentries, false)").split("\n\n").length, 6);
+});
+
+test("re-entry breakdowns retain distinct groups and unstructured calculations", () => {
+  const run = createApp();
+  const sections = run(`createFareBreakdownText([
+    ...["A", "B", "C", "D"].map((stationName, index) => ({
+      breakdown: stationName,
+      breakdownDetails: {
+        stationName, originName: "Origin", destinationName: "Destination",
+        firstLegFormula: "first", secondLegFormula: index < 2 ? "second" : "other", fare: 10
+      }
+    })),
+    { breakdown: "Additional calculation" }
+  ], true)`).split("\n\n");
+  assert.equal(sections.length, 3);
+  assert.match(sections[0], /^Same fare at: A, B\n/);
+  assert.match(sections[1], /^Same fare at: C, D\n/);
+  assert.equal(sections[2], "Additional calculation");
+});
+
 test("border journeys use full fare without re-entry for every pass", () => {
   const run = createApp();
   for (const [from, to, pass] of [
@@ -275,6 +321,80 @@ test("TST route alternatives have independent pass fares and breakdowns", () => 
   assert.equal(result.results.tstTransfer.routes[0].segments.some(segment => segment.line === "TST out-of-gate interchange"), true);
   const columns = run(`groupReentryColumns(getPassScenarios("53", "27", 10, routeAlternatives))`);
   assert.ok(columns.some(column => column.optionIds.length === 1 && column.optionIds[0] === "tstTransfer"));
+  assert.equal(columns[0].options[0].label, "Without TST / East TST interchange");
+  assert.equal(columns.find(column => column.optionIds[0] === "tstTransfer").options[0].label, "Via TST / East TST");
+});
+
+test("primary TST transfer and alternative routes have distinct labels", () => {
+  const run = createApp();
+  run(`Object.assign(fareTable, { "4-11": 9.2, "4-80": 4.9, "4-3": 4.9 });`);
+  const result = run(`getPassScenarios("4", "11", 9.2).find(entry => entry.passKey === "Pass1")`);
+  assert.equal(result.results.noExit.label, "Via TST / East TST");
+  assert.equal(result.results.otherRoute.label, "Without TST / East TST interchange");
+  assert.equal(result.results.noExit.fare, 3.7);
+  assert.equal(result.results.otherRoute.fare, 3.7);
+  const columns = run(`groupReentryColumns(getPassScenarios("4", "11", 9.2))`);
+  assert.equal(columns[0].options[0].label, "Via TST / East TST");
+  assert.equal(columns.find(column => column.optionIds[0] === "otherRoute").options[0].label, "Without TST / East TST interchange");
+  assert.equal(run(`groupReentryColumns(getPassScenarios("75", "1", 22.2))[0].options[0].label`), "No extra re-entry");
+});
+
+test("original fare opens both route suggestions without a selected pass", () => {
+  const run = createApp();
+  run(`
+    function testElement() {
+      return {
+        children: [], attributes: {}, listeners: {}, style: { setProperty() {} },
+        classList: { add() {} },
+        append(...nodes) { this.children.push(...nodes); },
+        replaceChildren(...nodes) { this.children = nodes; },
+        setAttribute(name, value) { this.attributes[name] = value; },
+        addEventListener(name, callback) { this.listeners[name] = callback; }
+      };
+    }
+    const testElements = Object.fromEntries(
+      ["resultTable", "mobileFareResults", "routeTable", "routeTableTitle", "routeChoices", "routeDiagram"]
+        .map(id => [id, testElement()])
+    );
+    testElements.resultTable.tHead = testElement();
+    testElements.resultTable.tBodies = [testElement()];
+    document.createElement = testElement;
+    document.createTextNode = text => ({ textContent: text });
+    document.getElementById = id => testElements[id];
+    const standardRoute = {
+      label: translations[currentLang].originalFare,
+      routes: createRouteOptions(findStationRoutes("4", "11"), null)
+    };
+    renderFareResults(9.2, [], null, standardRoute);
+  `);
+  for (const expression of [
+    "testElements.resultTable.tBodies[0].children[0].children[0].children[0]",
+    "testElements.mobileFareResults.children[0].children[0].children[0]"
+  ]) {
+    const button = run(expression);
+    assert.equal(button.attributes["aria-label"], "Show route: Original Fare:");
+    button.listeners.click();
+    assert.equal(run("testElements.routeTable.hidden"), false);
+    assert.equal(run("testElements.routeChoices.children.length"), 2);
+    assert.equal(run("testElements.routeTableTitle.textContent"), "Route: Original Fare:");
+    const segment = run(`testElements.routeDiagram.children[0].children
+      .find(node => node.children.some(child => child.title))`);
+    const label = segment.children.find(child => child.title);
+    assert.equal(label.textContent, "Exit & walk\nwithin 30 min");
+    assert.equal(label.attributes["aria-label"], "Exit and walk to the other station (within 30 minutes)");
+  }
+
+  const stopNotes = () => JSON.parse(run(`JSON.stringify(testElements.routeDiagram.children[0].children
+    .filter(node => node.className === "route-stop")
+    .map(node => [node.children[0].textContent,
+      node.children.find(child => child.className === "route-stop-note")?.textContent || null]))`));
+  assert.deepEqual(stopNotes(), [["4", null], ["3", "Exit"], ["80", "Enter"], ["11", null]]);
+  run(`renderRouteDiagram(createRouteInfo(["10", "9", "8", "65", "64", "80", "3", "4"], null, "fewestStations"))`);
+  assert.deepEqual(stopNotes(), [
+    ["10", null], ["8", "Interchange"], ["64", "Interchange"], ["80", "Exit"], ["3", "Enter"], ["4", null]
+  ]);
+  run(`currentLang = "zh"; renderRouteDiagram(createRouteInfo(["4", "3", "80", "111"], null, "fewestStations"))`);
+  assert.deepEqual(stopNotes(), [["4", null], ["3", "出閘"], ["80", "入閘"], ["111", null]]);
 });
 
 test("TST walking connection is an out-of-gate transfer, not a station or same-station re-entry", () => {

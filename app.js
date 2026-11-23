@@ -15,6 +15,8 @@ const translations = {
     appTitle: "MTR Monthly Pass Optimizer",
     appSubtitle: "Tap, ride, save—find your best fare today.",
     appFooter: "Fares are for reference only.",
+    lastUpdated: "Last updated",
+    latestChanges: "Latest changes",
     fromLine: "From Line",
     fromStation: "From Station",
     toLine: "To Line",
@@ -30,6 +32,7 @@ const translations = {
     noReentry: "No extra re-entry",
     tstRoute: "Via TST / East TST",
     otherRoute: "Without TST / East TST interchange",
+    tstRouteNote: "Exit and re-enter; one journey within 30 minutes",
     fewestInterchanges: "Fewest interchanges",
     fewestStations: "Fewest stations",
     interchangeCount: count => `${count} ${count === 1 ? "interchange" : "interchanges"}`,
@@ -49,8 +52,11 @@ const translations = {
     showRoute: "Show route",
     routeFor: label => `Route: ${label}`,
     interchange: "Interchange",
+    exitStation: "Exit",
+    enterStation: "Enter",
     walkingConnection: "Walk between stations",
     tstConnection: "Exit and walk to the other station (within 30 minutes)",
+    tstConnectionShort: "Exit & walk\nwithin 30 min",
     tstBreakdown: (first, adjustment, total) =>
       `TST / East TST interchange within 30 minutes\nFirst exit: ${formatFare(first)}\nFinal exit adjustment: ${formatFare(adjustment)}\nTotal: ${formatFare(total)}`,
     tstBreakdownUnavailable: "TST / East TST interchange within 30 minutes; gate calculation unavailable because a fare is missing.",
@@ -79,6 +85,8 @@ const translations = {
     appTitle: "全月通・一按即慳",
     appSubtitle: "出閘再入閘，搵出至抵搭法",
     appFooter: "票價資料只供參考。",
+    lastUpdated: "最後更新",
+    latestChanges: "最新改動",
     fromLine: "起點路線",
     fromStation: "起點車站",
     toLine: "終點路線",
@@ -94,6 +102,7 @@ const translations = {
     noReentry: "不額外出閘",
     tstRoute: "經尖沙咀／尖東轉乘",
     otherRoute: "不經尖沙咀／尖東轉乘",
+    tstRouteNote: "需出閘轉乘；30分鐘內視作同一程",
     fewestInterchanges: "最少轉車",
     fewestStations: "最少車站",
     interchangeCount: count => `${count}次轉車`,
@@ -113,8 +122,11 @@ const translations = {
     showRoute: "顯示路線",
     routeFor: label => `路線：${label}`,
     interchange: "轉車",
+    exitStation: "出閘",
+    enterStation: "入閘",
     walkingConnection: "步行轉乘",
     tstConnection: "出閘步行至另一車站（30分鐘內）",
+    tstConnectionShort: "出閘步行\n30分鐘內",
     tstBreakdown: (first, adjustment, total) =>
       `尖沙咀／尖東站30分鐘內轉乘\n首次出閘：${formatFare(first)}\n終點出閘補扣／退回：${formatFare(adjustment)}\n合共：${formatFare(total)}`,
     tstBreakdownUnavailable: "尖沙咀／尖東站30分鐘內轉乘；因缺少車費資料，未能計算出閘扣款。",
@@ -270,6 +282,25 @@ const passColors = {
   "Pass5": "#00888A"
 };
 
+function renderReleaseInfo(lang) {
+  const release = releaseHistory[0];
+  const date = new Date(`${release.date}T00:00:00Z`);
+  const formattedDate = new Intl.DateTimeFormat(lang === "zh" ? "zh-HK" : "en-GB", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC"
+  }).format(date);
+  document.getElementById("lastUpdated").textContent = `${translations[lang].lastUpdated}: ${formattedDate}`;
+  document.getElementById("latestChangesTitle").textContent = translations[lang].latestChanges;
+  const list = document.getElementById("latestChanges");
+  list.replaceChildren(...release.changes[lang].map(change => {
+    const item = document.createElement("li");
+    item.textContent = change;
+    return item;
+  }));
+}
+
 function setLanguage(lang) {
   const selectedFromLine = document.getElementById("fromLine").value;
   const selectedFromStation = document.getElementById("fromStation").value;
@@ -297,6 +328,7 @@ function setLanguage(lang) {
   document.getElementById("appTitle").textContent = translations[lang].appTitle;
   document.getElementById("appSubtitle").textContent = translations[lang].appSubtitle;
   document.getElementById("appFooter").textContent = translations[lang].appFooter;
+  renderReleaseInfo(lang);
   document.title = "全月通・一按即慳 | MTR Monthly Pass Optimizer";
   if (document.getElementById("resultTable").style.display !== "none") {
     calculateFare();
@@ -466,7 +498,11 @@ function calculateFare() {
     const routes = findStationRoutes(fromId, toId);
     const standardInterchange = calculateTstInterchange(null, fromId, toId, routes.fewestInterchanges) ||
       calculateTstInterchange(null, fromId, toId, routes.fewestStations);
-    renderFareResults(originalFare, getPassScenarios(fromId, toId, originalFare, routes), standardInterchange);
+    const standardRoute = {
+      label: translations[currentLang].originalFare,
+      routes: createRouteOptions(routes, null)
+    };
+    renderFareResults(originalFare, getPassScenarios(fromId, toId, originalFare, routes), standardInterchange, standardRoute);
     document.getElementById("resultTable").style.display = "table";
   } else {
     console.warn("[calculateFare] No fare found for stations:", { fromId, toId });
@@ -475,7 +511,7 @@ function calculateFare() {
   }
 }
 
-function renderFareResults(originalFare, results, standardInterchange = null) {
+function renderFareResults(originalFare, results, standardInterchange = null, standardRoute = null) {
   const table = document.getElementById("resultTable");
   const thead = table.tHead;
   const tbody = table.tBodies[0];
@@ -484,7 +520,7 @@ function renderFareResults(originalFare, results, standardInterchange = null) {
 
   const columns = groupReentryColumns(results);
   const passGroups = groupPassResults(results);
-  renderMobileFareResults(originalFare, results, columns, standardInterchange);
+  renderMobileFareResults(originalFare, results, columns, standardInterchange, standardRoute);
   const topHeader = document.createElement("tr");
   const passAxis = document.createElement("th");
   passAxis.scope = "col";
@@ -542,7 +578,11 @@ function renderFareResults(originalFare, results, standardInterchange = null) {
   const standardLabel = document.createElement("th");
   standardLabel.scope = "row";
   standardLabel.className = "matrix-standard-label";
-  standardLabel.textContent = translations[currentLang].originalFare;
+  if (standardRoute) {
+    renderRouteHeader(standardLabel, standardRoute);
+  } else {
+    standardLabel.textContent = translations[currentLang].originalFare;
+  }
   standardRow.append(standardLabel);
   const standardCell = document.createElement("td");
   standardCell.colSpan = columns.length;
@@ -626,14 +666,18 @@ function renderFareResults(originalFare, results, standardInterchange = null) {
   closeRouteDiagram();
 }
 
-function renderMobileFareResults(originalFare, results, columns, standardInterchange = null) {
+function renderMobileFareResults(originalFare, results, columns, standardInterchange = null, standardRoute = null) {
   const container = document.getElementById("mobileFareResults");
   container.replaceChildren();
 
   const standardFare = document.createElement("div");
   standardFare.className = "mobile-standard-fare";
   const standardLabel = document.createElement("span");
-  standardLabel.textContent = translations[currentLang].originalFare;
+  if (standardRoute) {
+    renderRouteHeader(standardLabel, standardRoute);
+  } else {
+    standardLabel.textContent = translations[currentLang].originalFare;
+  }
   const standardValue = document.createElement("strong");
   standardValue.textContent = formatFare(originalFare);
   standardFare.append(standardLabel, standardValue);
@@ -695,9 +739,9 @@ function renderMobileFareResults(originalFare, results, columns, standardInterch
       if (column.optionIds[0] === "noExit") {
         const routeOption = column.options[0];
         if (routeOption?.routes?.length) {
-          renderRouteHeader(label, routeOption, translations[currentLang].noReentry);
+          renderRouteHeader(label, routeOption);
         } else {
-          label.textContent = translations[currentLang].noReentry;
+          label.textContent = routeOption.label;
         }
       } else if (column.options.length > 1) {
         const group = document.createElement("details");
@@ -778,6 +822,13 @@ function renderRouteHeader(header, result, visibleLabel = result.label) {
   toggle.append(label, icon);
   toggle.addEventListener("click", () => toggleRouteDiagram(toggle, result));
   header.append(toggle);
+  if ((result.id === "noExit" || result.id === "tstTransfer") &&
+      result.routes.some(route => route.segments.some(segment => segment.line === tstConnection))) {
+    const note = document.createElement("span");
+    note.className = "route-transfer-note";
+    note.textContent = translations[currentLang].tstRouteNote;
+    header.append(note);
+  }
 }
 
 function toggleRouteDiagram(button, result) {
@@ -849,7 +900,11 @@ function renderRouteDiagram(route) {
     if (station.isInterchange) {
       const interchangeLabel = document.createElement("span");
       interchangeLabel.className = "route-stop-note";
-      interchangeLabel.textContent = translations[currentLang].interchange;
+      interchangeLabel.textContent = route.segments[index]?.line === tstConnection
+        ? translations[currentLang].exitStation
+        : route.segments[index - 1]?.line === tstConnection
+          ? translations[currentLang].enterStation
+          : translations[currentLang].interchange;
       stop.append(interchangeLabel);
     }
     if (station.isReentry) {
@@ -863,6 +918,9 @@ function renderRouteDiagram(route) {
     if (index < route.segments.length) {
       const segment = document.createElement("div");
       segment.className = "route-segment";
+      if (route.segments[index].line === tstConnection) {
+        segment.classList.add("is-tst-connection");
+      }
       segment.style.setProperty("--route-color", lineColors[route.segments[index].line] || "#94989A");
 
       const track = document.createElement("span");
@@ -876,10 +934,15 @@ function renderRouteDiagram(route) {
       const lineName = document.createElement("span");
       lineName.className = "route-segment-name";
       lineName.textContent = route.segments[index].line === tstConnection
-        ? translations[currentLang].tstConnection
+        ? translations[currentLang].tstConnectionShort
         : route.segments[index].line === walkingConnection
           ? translations[currentLang].walkingConnection
           : translations[currentLang].lines[route.segments[index].line] || route.segments[index].line;
+      if (route.segments[index].line === tstConnection) {
+        lineName.classList.add("is-tst-connection");
+        lineName.setAttribute("aria-label", translations[currentLang].tstConnection);
+        lineName.title = translations[currentLang].tstConnection;
+      }
       segment.append(stationCount, track, lineName);
       diagram.append(segment);
     }
@@ -891,32 +954,33 @@ function createFareBreakdownText(results, canGroupReentries) {
   const breakdowns = [...new Set(results.map(result => result.breakdown).filter(Boolean))];
   if (!canGroupReentries) return breakdowns.join("\n\n") || "";
 
-  const details = results.map(result => result.breakdownDetails).filter(Boolean);
-  if (details.length < 2) return breakdowns.join("\n\n") || "";
+  const groups = new Map();
+  results.forEach(result => {
+    const detail = result.breakdownDetails;
+    const key = detail
+      ? JSON.stringify([detail.originName, detail.destinationName, detail.firstLegFormula, detail.secondLegFormula, detail.fare])
+      : JSON.stringify([result.breakdown]);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(result);
+  });
 
-  const signature = detail => JSON.stringify([
-    detail.originName,
-    detail.destinationName,
-    detail.firstLegFormula,
-    detail.secondLegFormula,
-    detail.fare
-  ]);
-  if (new Set(details.map(signature)).size !== 1) {
-    return breakdowns.join("\n\n") || "";
-  }
+  return [...groups.values()].flatMap(group => {
+    const details = group.map(result => result.breakdownDetails).filter(Boolean);
+    const stationNames = [...new Set(details.map(detail => detail.stationName))];
+    if (stationNames.length < 2) {
+      return [...new Set(group.map(result => result.breakdown).filter(Boolean))];
+    }
 
-  const grouped = details[0];
-  const stationNames = [...new Set(details.map(detail => detail.stationName))];
-  if (stationNames.length < 2) return breakdowns.join("\n\n") || "";
-
-  return translations[currentLang].reentryGroupBreakdown(
-    stationNames,
-    grouped.originName,
-    grouped.destinationName,
-    grouped.firstLegFormula,
-    grouped.secondLegFormula,
-    grouped.fare
-  );
+    const detail = details[0];
+    return [translations[currentLang].reentryGroupBreakdown(
+      stationNames,
+      detail.originName,
+      detail.destinationName,
+      detail.firstLegFormula,
+      detail.secondLegFormula,
+      detail.fare
+    )];
+  }).join("\n\n");
 }
 
 function createFareBreakdown(text) {
@@ -959,6 +1023,9 @@ function getPassScenarios(fromId, toId, originalFare, routes = findStationRoutes
   const secondUsesTst = getTstTransferIndex(routes.fewestStations) >= 0;
   const hasDifferentTransfer = routes.fewestInterchanges && routes.fewestStations &&
     firstUsesTst !== secondUsesTst;
+  const primaryLabel = firstUsesTst
+    ? translations[currentLang].tstRoute
+    : hasDifferentTransfer ? translations[currentLang].otherRoute : translations[currentLang].noReentry;
   const primaryRoutes = {
     ...routes,
     fewestStations: hasDifferentTransfer ? null : routes.fewestStations
@@ -989,7 +1056,7 @@ function getPassScenarios(fromId, toId, originalFare, routes = findStationRoutes
       };
     }
     const primaryOptions = createRouteOptions(primaryRoutes, null);
-    addRouteResult("noExit", translations[currentLang].noReentry, routes.fewestInterchanges, primaryOptions);
+    addRouteResult("noExit", primaryLabel, routes.fewestInterchanges, primaryOptions);
     if (hasDifferentTransfer) {
       const id = secondUsesTst ? "tstTransfer" : "otherRoute";
       const label = secondUsesTst ? translations[currentLang].tstRoute : translations[currentLang].otherRoute;
@@ -1004,7 +1071,7 @@ function getPassScenarios(fromId, toId, originalFare, routes = findStationRoutes
         label: result.label
       };
     });
-    return { passKey, results, routes: primaryOptions };
+    return { passKey, results, routes: primaryOptions, routeLabel: primaryLabel };
     });
 }
 
@@ -1042,7 +1109,7 @@ function groupReentryColumns(passResults) {
     if (id === "noExit") {
       return {
         id,
-        label: translations[currentLang].noReentry,
+        label: passResults.find(entry => entry.routeLabel)?.routeLabel || translations[currentLang].noReentry,
         routes: passResults.find(entry => entry.routes)?.routes || []
       };
     }
@@ -1439,6 +1506,7 @@ function getBoundaryStation(passOption) {
 }
 
 window.onload = async () => {
+  renderReleaseInfo(currentLang);
   await loadStations();
   await loadFares();
 

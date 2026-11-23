@@ -13,7 +13,7 @@ Select any two stations on the MTR network, and the calculator will compare the 
 - always show the **standard fare**,
 - show pass discounts as rows and no-extra-re-entry/re-entry choices as columns,
 - switch to expandable, pass-by-pass fare cards on mobile screens,
-- group passes or re-entry stations when their fare results match, with a shared fare breakdown for grouped re-entry stations, and
+- group passes or re-entry stations when their fare results match, with matching re-entry calculations consolidated in the fare breakdown, and
 - show savings beside each discounted fare.
 
 It applies all of the pass rules:
@@ -24,9 +24,11 @@ It applies all of the pass rules:
 - shows only pass and exit/re-entry results that beat the standard fare, with savings beside each fare,
 - reveals each re-entry option's discounted-leg calculation on hover, focus, or click,
 - displays the route with the fewest interchanges by default, with the fewest-stations route available as a secondary choice, when a fare-result column header is selected,
+- lets the original-fare label open the same route suggestions, even with no pass selected,
 - models East Rail Line branches at Sheung Shui and the Tseung Kwan O Line branch at Tseung Kwan O when finding routes,
 - treats Central and Hong Kong as a single fare boundary and includes their paid-area walking interchange in routes,
-- shows the out-of-gate Tsim Sha Tsui / East Tsim Sha Tsui interchange as a single Octopus journey when completed within 30 minutes, including the first deduction and final adjustment or refund,
+- shows the out-of-gate Tsim Sha Tsui / East Tsim Sha Tsui interchange as a single Octopus journey when completed within 30 minutes, with directional exit and entry labels, the first deduction and final adjustment or refund,
+- labels routes using that interchange separately and notes the 30-minute transfer condition,
 - compares separately any suggested route that uses this interchange and one that does not, including the monthly-pass connecting-fare exception for the interchange,
 - compares eligible pass-zone interchanges even when a journey starts or ends at the pass boundary,
 - charges the full fare for each journey leg to or from Lo Wu or Lok Ma Chau, with pass benefits available on a separate re-entry leg,
@@ -42,6 +44,12 @@ It applies all of the pass rules:
 - Real‑time fare calculation with breakdown.
 - No backend – everything runs in the browser.
 - Hosted on GitHub Pages; easy to fork or modify.
+
+---
+
+## Release notes
+
+When publishing, add the release date and brief English and Traditional Chinese notes as the first entry in `release-history.js`. Older entries can remain in the file; the page displays only the first entry. The date describes the app release, not the freshness of the live fare data.
 
 ---
 

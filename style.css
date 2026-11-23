@@ -38,6 +38,22 @@ body {
   line-height: 1.4;
 }
 
+.app-footer p {
+  margin: 0.5em 0;
+}
+
+.release-info summary {
+  cursor: pointer;
+  color: #bdbdbd;
+}
+
+.release-info ul {
+  display: inline-block;
+  margin: 0.4em 0;
+  padding-left: 1.5em;
+  text-align: left;
+}
+
 .section {
   margin-top: 2vh;
 }
@@ -263,6 +279,15 @@ th {
 .matrix-option-label .route-header-toggle {
   white-space: normal;
   text-align: center;
+}
+
+.route-transfer-note {
+  display: block;
+  margin-top: 0.3em;
+  color: #aaa;
+  font-size: 0.75em;
+  font-weight: normal;
+  line-height: 1.4;
 }
 
 .matrix-reentry-group {
@@ -494,6 +519,10 @@ th {
   padding-top: calc(2.4em + 0.2em + 0.36em);
 }
 
+.route-segment.is-tst-connection {
+  min-width: 96px;
+}
+
 .route-segment-count {
   position: absolute;
   top: calc(2.4em - 0.95em);
@@ -522,6 +551,11 @@ th {
   line-height: 1.15;
   text-align: center;
   white-space: nowrap;
+}
+
+.route-segment-name.is-tst-connection {
+  max-width: 100%;
+  white-space: pre-line;
 }
 
 th {
