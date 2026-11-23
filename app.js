@@ -47,6 +47,7 @@ const translations = {
     showRoute: "Show route",
     routeFor: label => `Route: ${label}`,
     interchange: "Interchange",
+    walkingConnection: "Walk between stations",
     exitReenter: "Exit and re-enter",
     stationCount: count => `${count} ${count === 1 ? "stop" : "stops"}`,
     lines: {
@@ -104,6 +105,7 @@ const translations = {
     showRoute: "顯示路線",
     routeFor: label => `路線：${label}`,
     interchange: "轉車",
+    walkingConnection: "步行轉乘",
     exitReenter: "出閘／入閘",
     stationCount: count => `${count}站`,
     lines: {
@@ -153,6 +155,15 @@ const branchedLinePaths = {
 
 const borderStationIds = ["76", "78"];
 const sheungShuiId = "75";
+const centralId = "1";
+const hongKongId = "39";
+const walkingConnection = "Walking connection";
+
+function isSameStation(fromId, toId) {
+  return fromId === toId ||
+    (fromId === centralId && toId === hongKongId) ||
+    (fromId === hongKongId && toId === centralId);
+}
 
 function getLinePaths(line) {
   return branchedLinePaths[line] || [lineStations[line]];
@@ -418,7 +429,7 @@ function calculateFare() {
 
   console.log("[calculateFare] Inputs:", { fromId, toId, fare });
 
-  if (fare > 0) {
+  if (fare !== null) {
     const originalFare = fare;
 
     renderFareResults(originalFare, getPassScenarios(fromId, toId, originalFare));
@@ -819,13 +830,14 @@ function renderRouteDiagram(route) {
       track.setAttribute("aria-hidden", "true");
       const stationCount = document.createElement("span");
       stationCount.className = "route-segment-count";
-      stationCount.textContent = translations[currentLang].stationCount(
-        route.segments[index].stationCount
-      );
+      stationCount.textContent = route.segments[index].line === walkingConnection
+        ? ""
+        : translations[currentLang].stationCount(route.segments[index].stationCount);
       const lineName = document.createElement("span");
       lineName.className = "route-segment-name";
-      lineName.textContent = translations[currentLang].lines[route.segments[index].line]
-        || route.segments[index].line;
+      lineName.textContent = route.segments[index].line === walkingConnection
+        ? translations[currentLang].walkingConnection
+        : translations[currentLang].lines[route.segments[index].line] || route.segments[index].line;
       segment.append(stationCount, track, lineName);
       diagram.append(segment);
     }
@@ -1006,18 +1018,18 @@ function getReentryScenarios(fromId, toId, passOption, routes = findStationRoute
     : passCoverageIds[passOption];
   return candidates
     .filter((stationId, index) =>
-      stationId !== fromId &&
-      stationId !== toId &&
+      !isSameStation(stationId, fromId) &&
+      !isSameStation(stationId, toId) &&
       candidateRoutes.some(option => option.route.includes(stationId)) &&
       candidates.indexOf(stationId) === index
     )
     .map(stationId => {
       const firstLeg = borderJourney
         ? calculateBorderReentryLeg(passOption, fromId, stationId)
-        : calculateReentryFirstLegFare(passOption, fromId, stationId);
+        : calculateReentryLegFare(passOption, fromId, stationId);
       const secondLeg = borderJourney
         ? calculateBorderReentryLeg(passOption, stationId, toId)
-        : calculateReentrySecondLegFare(passOption, stationId, toId);
+        : calculateReentryLegFare(passOption, stationId, toId);
       if (!firstLeg || !secondLeg) return null;
       if (borderJourney) {
         if (!firstLeg.usesPass && !secondLeg.usesPass) return null;
@@ -1025,7 +1037,7 @@ function getReentryScenarios(fromId, toId, passOption, routes = findStationRoute
 
       const fare = firstLeg.fare + secondLeg.fare;
       const originalFare = lookupFare(fromId, toId);
-      if (fare >= originalFare) return null;
+      if (originalFare === null || fare >= originalFare) return null;
 
       const station = stations.find(item => item.id === stationId);
       const name = currentLang === "en" ? station?.en : station?.zh;
@@ -1089,21 +1101,23 @@ function createRouteInfo(route, reentryStation, type) {
   }
 
   const indexes = [...landmarkIndexes].sort((a, b) => a - b);
-  const transferCount = edgeLines.slice(1).reduce((count, line, index) =>
-    count + (line === edgeLines[index] ? 0 : 1), 0);
+  const trainLines = edgeLines.filter(line => line !== walkingConnection);
+  const transferCount = trainLines.slice(1).reduce((count, line, index) =>
+    count + (line === trainLines[index] ? 0 : 1), 0);
+  const stationCount = trainLines.length;
   const details = {
     fewestInterchanges: translations[currentLang].fewestInterchanges,
     fewestStations: translations[currentLang].fewestStations
   };
   const detail = type === "fewestStations"
-    ? translations[currentLang].stationCountLabel(route.length - 1)
+    ? translations[currentLang].stationCountLabel(stationCount)
     : translations[currentLang].interchangeCount(transferCount);
   return {
     type,
     label: details[type],
     detail,
     transferCount,
-    stationCount: route.length - 1,
+    stationCount,
     stations: indexes.map(index => ({
       id: route[index],
       name: getStationName(route[index]),
@@ -1113,12 +1127,14 @@ function createRouteInfo(route, reentryStation, type) {
     })),
     segments: indexes.slice(0, -1).map((startIndex, index) => ({
       line: edgeLines[startIndex],
-      stationCount: indexes[index + 1] - startIndex
+      stationCount: edgeLines.slice(startIndex, indexes[index + 1])
+        .filter(line => line !== walkingConnection).length
     }))
   };
 }
 
 function getLineForSegment(fromId, toId) {
+  if (fromId !== toId && isSameStation(fromId, toId)) return walkingConnection;
   return Object.entries(lineStations).find(([line]) =>
     getLinePaths(line).some(stationIds => {
       const index = stationIds.indexOf(fromId);
@@ -1134,7 +1150,7 @@ function involvesBorderStation(fromId, toId) {
 
 function calculateBorderReentryLeg(passOption, fromId, toId) {
   const fullFare = lookupFare(fromId, toId);
-  if (fullFare <= 0) return null;
+  if (fullFare === null || fullFare <= 0) return null;
 
   if (!involvesBorderStation(fromId, toId)) {
     if (isCoveredByPass(fromId, toId, passOption)) {
@@ -1153,40 +1169,13 @@ function calculateBorderReentryLeg(passOption, fromId, toId) {
   };
 }
 
-function calculateReentryFirstLegFare(passOption, fromId, reentryStation) {
-  const fare = lookupFare(fromId, reentryStation);
-  if (reentryStation === getBoundaryStation(passOption)) {
-    return { fare, formula: `${formatFare(fare)} (${translations[currentLang].fullFare})` };
-  }
-
-  return findCheapestConnectionCalculation(passOption, fromId, reentryStation)
-    || { fare, formula: `${formatFare(fare)} (${translations[currentLang].fullFare})` };
-}
-
-function calculateReentrySecondLegFare(passOption, reentryStation, toId) {
-  const candidates = [
-    getBoundaryStation(passOption),
-    ...(passInterchangeIds[passOption] || [])
-  ];
-
-  let cheapest = null;
-  for (const candidate of candidates) {
-    const fare = lookupFare(candidate, toId);
-    if (fare <= 0) continue;
-
-    const discounted = candidate !== reentryStation && candidate !== toId;
-    const effectiveFare = discounted ? applyDiscount(fare) : fare;
-    if (!cheapest || effectiveFare < cheapest.fare) {
-      cheapest = {
-        fare: effectiveFare,
-        formula: discounted
-          ? `${formatFare(fare)} × 75% = ${formatFare(effectiveFare)} (${translations[currentLang].viaStation(getStationName(candidate))})`
-          : `${formatFare(fare)} (${translations[currentLang].fullFare})`
-      };
-    }
-  }
-
-  return cheapest || { fare: 0, formula: "" };
+function calculateReentryLegFare(passOption, fromId, toId) {
+  const fare = lookupFare(fromId, toId);
+  if (fare === null) return null;
+  const connection = findCheapestConnectionCalculation(passOption, fromId, toId);
+  return connection && connection.fare < fare
+    ? connection
+    : { fare, formula: `${formatFare(fare)} (${translations[currentLang].fullFare})` };
 }
 
 function findCheapestConnectionCalculation(passOption, fromId, toId) {
@@ -1199,17 +1188,15 @@ function findCheapestConnectionCalculation(passOption, fromId, toId) {
   if (!((fromInside && !toInside) || (!fromInside && toInside))) return null;
 
   const boundary = getBoundaryStation(passOption);
-  if (fromId === boundary || toId === boundary) return null;
-
   const outsideStation = fromInside ? toId : fromId;
   const candidates = [boundary, ...(passInterchangeIds[passOption] || [])];
   let cheapest = null;
 
   for (const candidate of candidates) {
     const fare = lookupFare(candidate, outsideStation);
-    if (fare <= 0) continue;
+    if (fare === null || fare <= 0) continue;
 
-    const discounted = candidate !== fromId && candidate !== toId;
+    const discounted = !isSameStation(candidate, fromId) && !isSameStation(candidate, toId);
     const effectiveFare = discounted ? applyDiscount(fare) : fare;
     if (!cheapest || effectiveFare < cheapest.fare) {
       cheapest = {
@@ -1243,6 +1230,8 @@ function findStationRoutes(fromId, toId) {
       }
     });
   });
+  graph.get(centralId).push({ stationId: hongKongId, line: walkingConnection });
+  graph.get(hongKongId).push({ stationId: centralId, line: walkingConnection });
 
   function search(compareCosts) {
     const queue = [{
@@ -1260,12 +1249,13 @@ function findStationRoutes(fromId, toId) {
 
       for (const edge of graph.get(current.stationId) || []) {
         if (current.stations.includes(edge.stationId)) continue;
+        const walking = edge.line === walkingConnection;
         const next = {
           stationId: edge.stationId,
-          line: edge.line,
+          line: walking ? current.line : edge.line,
           stations: [...current.stations, edge.stationId],
-          transfers: current.transfers + (current.line && current.line !== edge.line ? 1 : 0),
-          stops: current.stops + 1
+          transfers: current.transfers + (!walking && current.line && current.line !== edge.line ? 1 : 0),
+          stops: current.stops + (walking ? 0 : 1)
         };
         const stateKey = `${next.stationId}:${next.line}`;
         const known = bestCosts.get(stateKey);
@@ -1298,7 +1288,7 @@ function isOutsidePassCoverage(fromId, toId, passOption) {
 
 // Lookup fare
 function lookupFare(from, to) {
-  return fareTable[`${from}-${to}`] || fareTable[`${to}-${from}`] || 0;
+  return fareTable[`${from}-${to}`] ?? fareTable[`${to}-${from}`] ?? null;
 }
 
 // Apply discount with rounding rule

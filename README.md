@@ -25,6 +25,8 @@ It applies all of the pass rules:
 - reveals each re-entry option's discounted-leg calculation on hover, focus, or click,
 - displays the route with the fewest interchanges by default, with the fewest-stations route available as a secondary choice, when a fare-result column header is selected,
 - models East Rail Line branches at Sheung Shui and the Tseung Kwan O Line branch at Tseung Kwan O when finding routes,
+- treats Central and Hong Kong as a single fare boundary and includes their paid-area walking interchange in routes,
+- compares eligible pass-zone interchanges even when a journey starts or ends at the pass boundary,
 - charges the full fare for each journey leg to or from Lo Wu or Lok Ma Chau, with pass benefits available on a separate re-entry leg,
 - excludes certain lines/stations (Airport Express, Racecourse, First‑Class) from pass benefits,
 - and uses the official fare table from DATA.GOV.HK.
